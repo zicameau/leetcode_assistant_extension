@@ -1,0 +1,24 @@
+{
+    "name": "Leetcode Assistant",
+    "description": "Base Level Extension",
+    "version": "1.0",
+    "manifest_version": 3,
+    "action": {
+      "default_popup": "hello.html",
+      "default_icon": "leetcode-600x400.png"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://leetcode.com/*",
+                "https://*.leetcode.com/*",
+                "https://leetcode.cn/*",
+                "https://*.leetcode.cn/*"
+            ],
+            "js": [
+                "contentScript.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ]
+  }

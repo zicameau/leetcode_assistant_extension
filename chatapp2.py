@@ -108,7 +108,7 @@ for message in st.session_state.messages[1:]:
         st.markdown(message["content"])
 
 # --- 5) Chat input & streaming reply ---
-user_text = st.chat_input("Ask about dividend stocks, ETFs, or growth stocks…")
+user_text = st.chat_input("Ask about datastructures and algorithms!")
 if user_text:
     # Append user message
     st.session_state.messages.append({"role": "user", "content": user_text})
