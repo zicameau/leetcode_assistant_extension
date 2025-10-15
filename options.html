@@ -19,19 +19,7 @@
     <div class="hint">Stored locally via chrome.storage.local</div>
     <button id="saveBtn">Save</button>
 
-    <script>
-      const apiKeyEl = document.getElementById('apiKey');
-      const saveBtn = document.getElementById('saveBtn');
-      chrome.storage.local.get(['openaiApiKey'], (res) => {
-        if (res.openaiApiKey) apiKeyEl.value = res.openaiApiKey;
-      });
-      saveBtn.addEventListener('click', () => {
-        chrome.storage.local.set({ openaiApiKey: apiKeyEl.value.trim() }, () => {
-          saveBtn.textContent = 'Saved!';
-          setTimeout(() => saveBtn.textContent = 'Save', 1500);
-        });
-      });
-    </script>
+    <script src="options.js"></script>
   </body>
   </html>
 
