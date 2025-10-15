@@ -18,11 +18,20 @@ function addMessage(role, content) {
     <div class="avatar">${role === "assistant" ? "🤖" : "🧑"}</div>
     <div>
       <div class="role">${role}</div>
-      <div class="bubble ${role}">${content}</div>
+      <div class="bubble ${role}"></div>
     </div>
   `;
   messagesEl.appendChild(msg);
+  const bubbleEl = msg.querySelector(".bubble");
+  if (typeof content === "string") {
+    bubbleEl.textContent = content;
+  } else if (content instanceof Node) {
+    bubbleEl.appendChild(content);
+  } else if (content != null) {
+    bubbleEl.textContent = String(content);
+  }
   messagesEl.scrollTop = messagesEl.scrollHeight;
+  return bubbleEl;
 }
 
 function setProblemMeta(info) {
@@ -82,10 +91,22 @@ formEl.addEventListener("submit", async (e) => {
       content: `You are a LeetCode assistant. Use the provided problem context when relevant. If the problem is unknown, ask for the slug or link.`,
     };
     const context = currentProblem ? [{ role: "system", content: `Current problem slug: ${currentProblem.slug}${currentProblem.questionId ? ` (id ${currentProblem.questionId})` : ""}. URL: ${currentProblem.url}` }] : [];
+    // show typing indicator while waiting for response
+    const typing = document.createElement("span");
+    typing.className = "typing";
+    typing.innerHTML = "<span>.</span><span>.</span><span>.</span>";
+    const placeholderBubble = addMessage("assistant", typing);
+
     const resp = await sendToModel([system, ...context, { role: "user", content }]);
-    addMessage("assistant", resp.content || "(no response)");
+    placeholderBubble.textContent = resp.content || "(no response)";
   } catch (err) {
-    addMessage("assistant", `Error: ${err.message}`);
+    const lastAssistantBubble = messagesEl.querySelector('.msg:last-child .bubble.assistant');
+    const errorMessage = `Error: ${err.message}`;
+    if (lastAssistantBubble && lastAssistantBubble.querySelector('.typing')) {
+      lastAssistantBubble.textContent = errorMessage;
+    } else {
+      addMessage("assistant", errorMessage);
+    }
   } finally {
     sendBtn.disabled = false;
   }
