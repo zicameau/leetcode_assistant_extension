@@ -4,9 +4,28 @@
     "version": "1.0",
     "manifest_version": 3,
     "action": {
-      "default_popup": "hello.html",
-      "default_icon": "leetcode-600x400.png"
+    "default_icon": "leetcode-600x400.png"
     },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://api.openai.com/*",
+    "https://leetcode.com/*",
+    "https://*.leetcode.com/*",
+    "https://leetcode.cn/*",
+    "https://*.leetcode.cn/*"
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
     "content_scripts": [
         {
             "matches": [
@@ -20,5 +39,6 @@
             ],
             "run_at": "document_idle"
         }
-    ]
+  ],
+  "options_page": "options.html"
   }

@@ -88,6 +88,8 @@ function detectAndNotify() {
   // Example: send to extension runtime if needed
   if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
     chrome.runtime.sendMessage({ type: "leetcodeProblemDetected", payload: info });
+    // Also persist directly to storage for fast reads from side panel
+    try { chrome.storage?.local?.set({ leetcodeProblem: info }); } catch (_) {}
   }
 }
 

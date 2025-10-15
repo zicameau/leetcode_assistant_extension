@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LeetCode Assistant Settings</title>
+    <style>
+      body { font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial; padding: 24px; }
+      label { display: block; margin-bottom: 8px; }
+      input { width: 420px; max-width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; }
+      button { margin-top: 12px; padding: 10px 14px; border-radius: 8px; border: none; background: #ffb43a; color: #111; font-weight: 600; cursor: pointer; }
+      .hint { color: #666; margin-top: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>LeetCode Assistant Settings</h1>
+    <label for="apiKey">OpenAI API key</label>
+    <input id="apiKey" type="password" placeholder="sk-..." />
+    <div class="hint">Stored locally via chrome.storage.local</div>
+    <button id="saveBtn">Save</button>
+
+    <script>
+      const apiKeyEl = document.getElementById('apiKey');
+      const saveBtn = document.getElementById('saveBtn');
+      chrome.storage.local.get(['openaiApiKey'], (res) => {
+        if (res.openaiApiKey) apiKeyEl.value = res.openaiApiKey;
+      });
+      saveBtn.addEventListener('click', () => {
+        chrome.storage.local.set({ openaiApiKey: apiKeyEl.value.trim() }, () => {
+          saveBtn.textContent = 'Saved!';
+          setTimeout(() => saveBtn.textContent = 'Save', 1500);
+        });
+      });
+    </script>
+  </body>
+  </html>
+
+
