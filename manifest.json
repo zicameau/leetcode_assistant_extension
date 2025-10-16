@@ -4,11 +4,11 @@
     "version": "1.0",
     "manifest_version": 3,
     "action": {
-    "default_icon": "leetcode-600x400.png"
+    "default_icon": "leetcode-600x400.png",
+    "default_title": "Toggle LeetCode Assistant"
     },
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "permissions": [
     "sidePanel",
