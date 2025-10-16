@@ -1,3 +1,59 @@
+// Track side panel state
+let sidePanelOpen = new Set();
+
+// Check if sidePanel API is available
+function isSidePanelAvailable() {
+  return chrome.sidePanel && typeof chrome.sidePanel.open === 'function';
+}
+
+// Handle extension icon click to toggle side panel
+chrome.action.onClicked.addListener(async (tab) => {
+  const tabId = tab.id;
+  console.log('Extension icon clicked for tab:', tabId);
+  
+  if (!isSidePanelAvailable()) {
+    console.log('SidePanel API not available, opening in new tab');
+    // Fallback: open side panel in a new tab
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('sidepanel.html'),
+      active: true
+    });
+    return;
+  }
+  
+  console.log('Current side panel state:', sidePanelOpen.has(tabId) ? 'Open' : 'Closed');
+  
+  try {
+    if (sidePanelOpen.has(tabId)) {
+      // Panel is open, close it
+      console.log('Closing side panel...');
+      await chrome.sidePanel.close({ tabId });
+      sidePanelOpen.delete(tabId);
+      console.log('Side panel closed');
+    } else {
+      // Panel is closed, open it
+      console.log('Opening side panel...');
+      await chrome.sidePanel.open({ tabId });
+      sidePanelOpen.add(tabId);
+      console.log('Side panel opened');
+    }
+  } catch (error) {
+    console.error('Error toggling side panel:', error);
+    // Fallback: open in new tab if side panel fails
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('sidepanel.html'),
+      active: true
+    });
+  }
+});
+
+// Listen for side panel events to track state (only if API is available)
+if (isSidePanelAvailable() && chrome.sidePanel.onClosed) {
+  chrome.sidePanel.onClosed.addListener(({ tabId }) => {
+    sidePanelOpen.delete(tabId);
+  });
+}
+
 // Store last detected problem for sidepanel to read
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "leetcodeProblemDetected") {
@@ -46,6 +102,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true; // async
   }
+  
+  
   return false;
 });
 
