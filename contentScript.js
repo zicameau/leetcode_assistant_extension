@@ -1,3 +1,6 @@
+console.log("✅ LeetCode Assistant: contentScript.js loaded at", window.location.href);
+
+
 // Utility to parse LeetCode problem info from current URL and DOM
 function getProblemInfoFromLocation() {
   const url = new URL(window.location.href);
