@@ -61,6 +61,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse?.({ ok: true });
     return true;
   }
+  if (message?.type === "leetcodeSelection") {
+    (async () => {
+      try {
+        const tabId = sender?.tab?.id;
+        // Store latest selection for the side panel to read
+        await chrome.storage.local.set({ leetcodeLastSelection: message.payload });
+        // Ensure side panel is open and focused
+        if (isSidePanelAvailable() && tabId != null) {
+          try { await chrome.sidePanel.open({ tabId }); } catch (_) {}
+          sidePanelOpen.add(tabId);
+        } else {
+          // Fallback: open sidepanel page in a new tab
+          chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html'), active: true });
+        }
+        // Notify any sidepanel to pull the latest selection
+        chrome.runtime.sendMessage({ type: 'leetcodeSelectionReady' });
+        sendResponse?.({ ok: true });
+      } catch (err) {
+        sendResponse?.({ error: String(err?.message || err) });
+      }
+    })();
+    return true;
+  }
   return false;
 });
 

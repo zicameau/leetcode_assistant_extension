@@ -6,6 +6,7 @@ const problemMetaEl = document.getElementById("problemMeta");
 const openOptionsBtn = document.getElementById("openOptions");
 
 let currentProblem = null;
+let selectionBuffer = null;
 
 openOptionsBtn.addEventListener("click", async () => {
   if (chrome.runtime?.openOptionsPage) chrome.runtime.openOptionsPage();
@@ -116,6 +117,32 @@ formEl.addEventListener("submit", async (e) => {
 (async function init() {
   currentProblem = await loadProblemFromStorage();
   setProblemMeta(currentProblem);
+  // If a selection was just sent, pull and auto-send
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type === 'leetcodeSelectionReady') {
+      void handleIncomingSelection();
+    }
+  });
+  // Also check storage in case we opened before message arrived
+  await handleIncomingSelection();
 })();
+
+async function handleIncomingSelection() {
+  const { leetcodeLastSelection } = await new Promise((resolve) => {
+    chrome.storage.local.get(["leetcodeLastSelection"], (res) => resolve(res));
+  });
+  if (!leetcodeLastSelection) return;
+  if (selectionBuffer && selectionBuffer.ts === leetcodeLastSelection.ts) return; // already handled
+  selectionBuffer = leetcodeLastSelection;
+  if (leetcodeLastSelection.problem && (!currentProblem || currentProblem.slug !== leetcodeLastSelection.problem.slug)) {
+    currentProblem = leetcodeLastSelection.problem;
+    setProblemMeta(currentProblem);
+  }
+  const text = leetcodeLastSelection.text?.trim();
+  if (!text) return;
+  // Post the selection as a user message and auto-send
+  promptEl.value = text;
+  formEl.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+}
 
 

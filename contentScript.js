@@ -124,3 +124,142 @@ const mo = new MutationObserver(() => detectAndNotify());
 mo.observe(document.documentElement, { childList: true, subtree: true });
 
 
+// ================= Selection Helper Overlay =================
+// A lightweight floating button that appears near current selection to send text
+// to the assistant. It stays non-intrusive and hides on clear/scroll.
+
+let overlayBtn = null;
+let overlayVisible = false;
+let overlayHideTimer = null;
+
+function ensureOverlay() {
+  if (overlayBtn) return overlayBtn;
+  overlayBtn = document.createElement("button");
+  overlayBtn.type = "button";
+  overlayBtn.textContent = "💬 Ask"; // compact label; can be A/B tested
+  overlayBtn.setAttribute("aria-label", "Ask assistant about selection");
+  overlayBtn.style.position = "fixed";
+  overlayBtn.style.zIndex = "2147483646"; // just below devtools 2147483647
+  overlayBtn.style.padding = "6px 8px";
+  overlayBtn.style.fontSize = "12px";
+  overlayBtn.style.border = "1px solid rgba(0,0,0,0.15)";
+  overlayBtn.style.borderRadius = "8px";
+  overlayBtn.style.boxShadow = "0 2px 10px rgba(0,0,0,0.15)";
+  overlayBtn.style.background = "rgba(30, 30, 30, 0.9)";
+  overlayBtn.style.color = "#fff";
+  overlayBtn.style.cursor = "pointer";
+  overlayBtn.style.userSelect = "none";
+  overlayBtn.style.display = "none";
+  overlayBtn.style.transform = "translate(-50%, -120%)"; // anchor above center
+  overlayBtn.style.backdropFilter = "saturate(120%) blur(2px)";
+  overlayBtn.style.transition = "opacity 120ms ease";
+  overlayBtn.style.opacity = "0";
+  overlayBtn.tabIndex = 0;
+  overlayBtn.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      overlayBtn.click();
+    }
+  });
+
+  overlayBtn.addEventListener("mousedown", (e) => {
+    // prevent selection from collapsing before we read it
+    e.preventDefault();
+  });
+
+  overlayBtn.addEventListener("click", async () => {
+    const selected = getSelectedText();
+    if (!selected) return hideOverlay();
+    const info = getProblemInfoFromLocation();
+    const payload = {
+      text: selected.slice(0, 20000), // safety cap
+      problem: info,
+      sourceUrl: location.href,
+      ts: Date.now(),
+    };
+    // Visual feedback
+    overlayBtn.textContent = "⏳";
+    try {
+      chrome.runtime?.sendMessage?.({ type: "leetcodeSelection", payload }, () => {
+        // Reset label regardless of delivery path
+        overlayBtn.textContent = "✔";
+        setTimeout(hideOverlay, 500);
+      });
+    } catch (_) {
+      overlayBtn.textContent = "!";
+      setTimeout(hideOverlay, 800);
+    }
+  });
+
+  document.documentElement.appendChild(overlayBtn);
+  return overlayBtn;
+}
+
+function getSelectionRect() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+  if (!rect || (rect.width === 0 && rect.height === 0)) return null;
+  return rect;
+}
+
+function getSelectedText() {
+  const sel = window.getSelection();
+  if (!sel) return "";
+  return sel.toString().trim();
+}
+
+function positionOverlayNearSelection() {
+  const rect = getSelectionRect();
+  if (!rect) return hideOverlay();
+  const btn = ensureOverlay();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top; // above selection
+  btn.style.left = `${Math.min(Math.max(x, 8), window.innerWidth - 8)}px`;
+  btn.style.top = `${Math.min(Math.max(y, 8), window.innerHeight - 8)}px`;
+  if (!overlayVisible) {
+    btn.style.display = "block";
+    requestAnimationFrame(() => {
+      btn.style.opacity = "1";
+    });
+    overlayVisible = true;
+  }
+}
+
+function hideOverlay() {
+  if (!overlayBtn || !overlayVisible) return;
+  overlayVisible = false;
+  overlayBtn.style.opacity = "0";
+  clearTimeout(overlayHideTimer);
+  overlayHideTimer = setTimeout(() => {
+    if (overlayBtn) overlayBtn.style.display = "none";
+  }, 130);
+}
+
+function maybeShowOverlay() {
+  const text = getSelectedText();
+  if (!text) return hideOverlay();
+  // Filter very short selections (single punctuation/whitespace)
+  if (text.replace(/\s/g, "").length < 2) return hideOverlay();
+  positionOverlayNearSelection();
+}
+
+document.addEventListener("selectionchange", () => {
+  // Debounce the reaction a bit for rapid changes
+  clearTimeout(overlayHideTimer);
+  overlayHideTimer = setTimeout(maybeShowOverlay, 60);
+});
+
+document.addEventListener("mouseup", () => {
+  setTimeout(maybeShowOverlay, 0);
+});
+
+document.addEventListener("keyup", (e) => {
+  if (e.key === "Escape") hideOverlay();
+});
+
+window.addEventListener("scroll", () => {
+  if (overlayVisible) positionOverlayNearSelection();
+}, { passive: true });
+
