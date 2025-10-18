@@ -209,18 +209,48 @@ function getSelectionRect() {
 
 function getSelectedText() {
   const sel = window.getSelection();
-  if (!sel) return "";
-  return sel.toString().trim();
+  if (!sel) {
+    console.log("❌ No selection object");
+    return "";
+  }
+  
+  const text = sel.toString().trim();
+  console.log("📝 getSelectedText result:", {
+    hasSelection: !!text,
+    text: text.slice(0, 30) + (text.length > 30 ? "..." : ""),
+    rangeCount: sel.rangeCount,
+    isCollapsed: sel.isCollapsed
+  });
+  
+  return text;
 }
 
 function positionOverlayNearSelection() {
   const rect = getSelectionRect();
   if (!rect) return hideOverlay();
   const btn = ensureOverlay();
+  
+  // Calculate position relative to viewport
   const x = rect.left + rect.width / 2;
   const y = rect.top; // above selection
-  btn.style.left = `${Math.min(Math.max(x, 8), window.innerWidth - 8)}px`;
-  btn.style.top = `${Math.min(Math.max(y, 8), window.innerHeight - 8)}px`;
+  
+  // Ensure button stays within viewport bounds
+  const buttonWidth = 80; // approximate button width
+  const buttonHeight = 32; // approximate button height
+  
+  const finalX = Math.min(Math.max(x - buttonWidth/2, 8), window.innerWidth - buttonWidth - 8);
+  const finalY = Math.max(y - buttonHeight - 4, 8); // 4px gap above selection
+  
+  btn.style.left = `${finalX}px`;
+  btn.style.top = `${finalY}px`;
+  
+  // Debug positioning for code blocks
+  console.log("📍 Positioning overlay:", {
+    selectionRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+    finalPosition: { x: finalX, y: finalY },
+    viewport: { width: window.innerWidth, height: window.innerHeight }
+  });
+  
   if (!overlayVisible) {
     btn.style.display = "block";
     requestAnimationFrame(() => {
@@ -243,20 +273,45 @@ function hideOverlay() {
 function maybeShowOverlay() {
   const text = getSelectedText();
   if (!text) return hideOverlay();
+  
   // Filter very short selections (single punctuation/whitespace)
-  if (text.replace(/\s/g, "").length < 2) return hideOverlay();
+  // But allow single characters for code (like variable names)
+  const cleanText = text.replace(/\s/g, "");
+  if (cleanText.length < 1) return hideOverlay();
+  
+  // Debug logging for code selections
+  console.log("🔍 Selection detected:", {
+    text: text.slice(0, 50) + (text.length > 50 ? "..." : ""),
+    length: text.length,
+    cleanLength: cleanText.length,
+    isCode: /[{}();=<>]/.test(text) || text.includes('\n') || text.includes('\t')
+  });
+  
   positionOverlayNearSelection();
 }
 
+// Enhanced selection detection for code editors
 document.addEventListener("selectionchange", () => {
+  console.log("🔄 Selection change event fired");
   // Debounce the reaction a bit for rapid changes
   clearTimeout(overlayHideTimer);
   overlayHideTimer = setTimeout(maybeShowOverlay, 60);
 });
 
-document.addEventListener("mouseup", () => {
+document.addEventListener("mouseup", (e) => {
+  console.log("🖱️ Mouse up event fired", e.target);
   setTimeout(maybeShowOverlay, 0);
 });
+
+// Additional event listeners for code editors
+document.addEventListener("mouseup", (e) => {
+  // Check if we're in a code editor area
+  const isCodeEditor = e.target.closest('[data-cy="code-editor"], .monaco-editor, .CodeMirror, [role="textbox"]');
+  if (isCodeEditor) {
+    console.log("📝 Code editor mouseup detected");
+    setTimeout(maybeShowOverlay, 100); // Give editor time to update selection
+  }
+}, true); // Use capture phase
 
 document.addEventListener("keyup", (e) => {
   if (e.key === "Escape") hideOverlay();
@@ -265,4 +320,31 @@ document.addEventListener("keyup", (e) => {
 window.addEventListener("scroll", () => {
   if (overlayVisible) positionOverlayNearSelection();
 }, { passive: true });
+
+// Global debug function - call this in console to test
+window.debugLeetCodeAssistant = function() {
+  console.log("🔧 Manual debug trigger");
+  const sel = window.getSelection();
+  console.log("Current selection:", {
+    exists: !!sel,
+    text: sel?.toString() || "none",
+    rangeCount: sel?.rangeCount || 0,
+    isCollapsed: sel?.isCollapsed,
+    anchorNode: sel?.anchorNode,
+    focusNode: sel?.focusNode
+  });
+  
+  // Try to trigger overlay manually
+  maybeShowOverlay();
+  
+  // Check if overlay exists
+  const overlay = document.querySelector('button[aria-label="Ask assistant about selection"]');
+  console.log("Overlay button exists:", !!overlay);
+  if (overlay) {
+    console.log("Overlay visible:", overlay.style.display !== "none");
+    console.log("Overlay opacity:", overlay.style.opacity);
+  }
+};
+
+console.log("🛠️ Debug function available: window.debugLeetCodeAssistant()");
 
