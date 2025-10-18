@@ -134,6 +134,7 @@ mo.observe(document.documentElement, { childList: true, subtree: true });
 let overlayBtn = null;
 let overlayVisible = false;
 let overlayHideTimer = null;
+let lastMousePosition = { x: 0, y: 0 };
 
 function ensureOverlay() {
   if (overlayBtn) {
@@ -144,7 +145,7 @@ function ensureOverlay() {
   console.log("🔧 Creating new overlay button");
   overlayBtn = document.createElement("button");
   overlayBtn.type = "button";
-  overlayBtn.textContent = "💬 Ask"; // compact label; can be A/B tested
+  overlayBtn.textContent = "💬 Ask Assistant"; // more descriptive label
   overlayBtn.setAttribute("aria-label", "Ask assistant about selection");
   overlayBtn.style.position = "fixed";
   overlayBtn.style.zIndex = "2147483646"; // just below devtools 2147483647
@@ -396,26 +397,42 @@ function maybeShowOverlay() {
   if (!rect) {
     console.log("⚠️ No selection rect, trying alternative positioning...");
     
-    // Alternative: Position near mouse cursor or active element
-    const activeElement = document.activeElement;
-    if (activeElement && activeElement.getBoundingClientRect) {
-      const activeRect = activeElement.getBoundingClientRect();
-      console.log("📍 Using active element for positioning:", activeRect);
+    // Alternative 1: Use mouse position (most accurate for user intent)
+    if (lastMousePosition.x > 0 && lastMousePosition.y > 0) {
+      console.log("📍 Using mouse position for positioning:", lastMousePosition);
       
-      // Create a fake rect for positioning
       const fakeRect = {
-        left: activeRect.left,
-        top: activeRect.top,
-        width: Math.max(activeRect.width, 100),
-        height: Math.max(activeRect.height, 20),
-        right: activeRect.right,
-        bottom: activeRect.bottom
+        left: lastMousePosition.x - 50, // center around mouse
+        top: lastMousePosition.y - 20,  // slightly above mouse
+        width: 100,
+        height: 20,
+        right: lastMousePosition.x + 50,
+        bottom: lastMousePosition.y
       };
       
       positionOverlayWithRect(fakeRect);
     } else {
-      console.log("❌ No fallback positioning available");
-      return hideOverlay();
+      // Alternative 2: Use active element as last resort
+      const activeElement = document.activeElement;
+      if (activeElement && activeElement.getBoundingClientRect) {
+        const activeRect = activeElement.getBoundingClientRect();
+        console.log("📍 Using active element for positioning:", activeRect);
+        
+        // Position at the center of the active element, not the top
+        const fakeRect = {
+          left: activeRect.left + activeRect.width / 2 - 50,
+          top: activeRect.top + activeRect.height / 2 - 20,
+          width: 100,
+          height: 20,
+          right: activeRect.left + activeRect.width / 2 + 50,
+          bottom: activeRect.top + activeRect.height / 2
+        };
+        
+        positionOverlayWithRect(fakeRect);
+      } else {
+        console.log("❌ No fallback positioning available");
+        return hideOverlay();
+      }
     }
   } else {
     positionOverlayNearSelection();
@@ -478,15 +495,23 @@ document.addEventListener("selectionchange", () => {
 
 document.addEventListener("mouseup", (e) => {
   console.log("🖱️ Mouse up event fired", e.target);
+  // Track mouse position for better fallback positioning
+  lastMousePosition.x = e.clientX;
+  lastMousePosition.y = e.clientY;
+  console.log("📍 Mouse position recorded:", lastMousePosition);
   setTimeout(maybeShowOverlay, 0);
 });
 
 // Additional event listeners for code editors
 document.addEventListener("mouseup", (e) => {
+  // Track mouse position for better fallback positioning
+  lastMousePosition.x = e.clientX;
+  lastMousePosition.y = e.clientY;
+  
   // Check if we're in a code editor area
   const isCodeEditor = e.target.closest('[data-cy="code-editor"], .monaco-editor, .CodeMirror, [role="textbox"]');
   if (isCodeEditor) {
-    console.log("📝 Code editor mouseup detected");
+    console.log("📝 Code editor mouseup detected at:", lastMousePosition);
     setTimeout(maybeShowOverlay, 100); // Give editor time to update selection
   }
 }, true); // Use capture phase
