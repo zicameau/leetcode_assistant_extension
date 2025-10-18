@@ -200,7 +200,40 @@ function getSelectionRect() {
   if (!sel || sel.rangeCount === 0) return null;
   const range = sel.getRangeAt(0);
   const rect = range.getBoundingClientRect();
-  if (!rect || (rect.width === 0 && rect.height === 0)) return null;
+  
+  // If rect has zero dimensions, try alternative methods for code editors
+  if (!rect || (rect.width === 0 && rect.height === 0)) {
+    // Try to get client rects (works better with code editors)
+    const rects = range.getClientRects();
+    if (rects && rects.length > 0) {
+      for (let i = 0; i < rects.length; i++) {
+        const r = rects[i];
+        if (r.width > 0 || r.height > 0) {
+          return r;
+        }
+      }
+    }
+    
+    // Fallback: try to find Monaco editor and use its position
+    const monacoEditor = document.querySelector('.monaco-editor .view-lines');
+    if (monacoEditor) {
+      const monacoRect = monacoEditor.getBoundingClientRect();
+      if (monacoRect.width > 0 && monacoRect.height > 0) {
+        // Return a rect in the middle of the editor
+        return {
+          left: monacoRect.left + monacoRect.width / 2 - 50,
+          top: monacoRect.top + monacoRect.height / 2 - 10,
+          width: 100,
+          height: 20,
+          right: monacoRect.left + monacoRect.width / 2 + 50,
+          bottom: monacoRect.top + monacoRect.height / 2 + 10
+        };
+      }
+    }
+    
+    return null;
+  }
+  
   return rect;
 }
 
@@ -264,6 +297,17 @@ document.addEventListener("selectionchange", () => {
 document.addEventListener("mouseup", () => {
   setTimeout(maybeShowOverlay, 0);
 });
+
+// Additional event listeners for code editors
+document.addEventListener("mouseup", (e) => {
+  // Check if we're in a code editor area
+  const isCodeEditor = e.target.closest('[data-cy="code-editor"], .monaco-editor, .CodeMirror, [role="textbox"]');
+  if (isCodeEditor) {
+    console.log("📝 Code editor mouseup detected");
+    // Use a longer delay for code editors to ensure selection is processed
+    setTimeout(maybeShowOverlay, 150);
+  }
+}, true); // Use capture phase
 
 document.addEventListener("keyup", (e) => {
   if (e.key === "Escape") hideOverlay();
