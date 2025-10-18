@@ -246,6 +246,32 @@ function getSelectionRect() {
       }
     }
     
+    // Method 1.5: Try to find the actual selected text in the DOM
+    const selectedText = sel.toString();
+    if (selectedText) {
+      // Look for the selected text in the editor
+      const editor = document.querySelector('.monaco-editor, [data-cy="code-editor"]');
+      if (editor) {
+        const walker = document.createTreeWalker(
+          editor,
+          NodeFilter.SHOW_TEXT,
+          null,
+          false
+        );
+        
+        let node;
+        while (node = walker.nextNode()) {
+          if (node.textContent.includes(selectedText)) {
+            const textRect = node.getBoundingClientRect();
+            console.log("📐 Found selected text in DOM:", textRect);
+            if (textRect.width > 0 && textRect.height > 0) {
+              return textRect;
+            }
+          }
+        }
+      }
+    }
+    
     // Method 2: Try to get the container element and use its position
     const container = range.commonAncestorContainer;
     console.log("📐 Container:", container);
@@ -283,6 +309,26 @@ function getSelectionRect() {
           height: Math.max(activeRect.height, 20),
           right: activeRect.right,
           bottom: activeRect.bottom
+        };
+      }
+    }
+    
+    // Method 4: Try to find Monaco editor viewport
+    const monacoEditor = document.querySelector('.monaco-editor .view-lines');
+    if (monacoEditor) {
+      const monacoRect = monacoEditor.getBoundingClientRect();
+      console.log("📐 Monaco editor viewport rect:", monacoRect);
+      
+      if (monacoRect.width > 0 && monacoRect.height > 0) {
+        // Position in the middle of the editor viewport
+        console.log("✅ Using Monaco editor viewport as fallback");
+        return {
+          left: monacoRect.left + monacoRect.width / 2 - 60,
+          top: monacoRect.top + monacoRect.height / 2 - 20,
+          width: 120,
+          height: 30,
+          right: monacoRect.left + monacoRect.width / 2 + 60,
+          bottom: monacoRect.top + monacoRect.height / 2 + 10
         };
       }
     }
@@ -413,6 +459,23 @@ function maybeShowOverlay() {
       
       positionOverlayWithRect(fakeRect);
     } else {
+      // Alternative 1.5: Try to find Monaco editor and position in the middle
+      const monacoEditor = document.querySelector('.monaco-editor .view-lines');
+      if (monacoEditor) {
+        const monacoRect = monacoEditor.getBoundingClientRect();
+        console.log("📍 Using Monaco editor middle for positioning:", monacoRect);
+        
+        const fakeRect = {
+          left: monacoRect.left + monacoRect.width / 2 - 60,
+          top: monacoRect.top + monacoRect.height / 2 - 20,
+          width: 120,
+          height: 30,
+          right: monacoRect.left + monacoRect.width / 2 + 60,
+          bottom: monacoRect.top + monacoRect.height / 2 + 10
+        };
+        
+        positionOverlayWithRect(fakeRect);
+      } else {
       // Alternative 2: Use active element as last resort
       const activeElement = document.activeElement;
       if (activeElement && activeElement.getBoundingClientRect) {
@@ -562,4 +625,18 @@ window.debugLeetCodeAssistant = function() {
 };
 
 console.log("🛠️ Debug function available: window.debugLeetCodeAssistant()");
+
+// Add a simple test function to force show the button
+window.testOverlay = function() {
+  console.log("🧪 Testing overlay button...");
+  const btn = ensureOverlay();
+  btn.style.display = "block";
+  btn.style.opacity = "1";
+  btn.style.left = "200px";
+  btn.style.top = "200px";
+  btn.style.zIndex = "999999";
+  console.log("🧪 Button should now be visible at 200,200");
+};
+
+console.log("🧪 Test function available: window.testOverlay()");
 
