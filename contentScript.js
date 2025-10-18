@@ -401,13 +401,14 @@ function maybeShowOverlay() {
     if (lastMousePosition.x > 0 && lastMousePosition.y > 0) {
       console.log("📍 Using mouse position for positioning:", lastMousePosition);
       
+      // Position the button near the mouse cursor, not at the top
       const fakeRect = {
-        left: lastMousePosition.x - 50, // center around mouse
-        top: lastMousePosition.y - 20,  // slightly above mouse
-        width: 100,
-        height: 20,
-        right: lastMousePosition.x + 50,
-        bottom: lastMousePosition.y
+        left: lastMousePosition.x - 60, // center around mouse
+        top: lastMousePosition.y - 40,  // well above mouse to avoid overlap
+        width: 120, // wider for "Ask Assistant" text
+        height: 30,
+        right: lastMousePosition.x + 60,
+        bottom: lastMousePosition.y - 10
       };
       
       positionOverlayWithRect(fakeRect);
@@ -420,12 +421,12 @@ function maybeShowOverlay() {
         
         // Position at the center of the active element, not the top
         const fakeRect = {
-          left: activeRect.left + activeRect.width / 2 - 50,
-          top: activeRect.top + activeRect.height / 2 - 20,
-          width: 100,
-          height: 20,
-          right: activeRect.left + activeRect.width / 2 + 50,
-          bottom: activeRect.top + activeRect.height / 2
+          left: activeRect.left + activeRect.width / 2 - 60,
+          top: activeRect.top + activeRect.height / 2 - 40,
+          width: 120, // wider for "Ask Assistant" text
+          height: 30,
+          right: activeRect.left + activeRect.width / 2 + 60,
+          bottom: activeRect.top + activeRect.height / 2 - 10
         };
         
         positionOverlayWithRect(fakeRect);
@@ -512,9 +513,20 @@ document.addEventListener("mouseup", (e) => {
   const isCodeEditor = e.target.closest('[data-cy="code-editor"], .monaco-editor, .CodeMirror, [role="textbox"]');
   if (isCodeEditor) {
     console.log("📝 Code editor mouseup detected at:", lastMousePosition);
-    setTimeout(maybeShowOverlay, 100); // Give editor time to update selection
+    // Use a longer delay for code editors to ensure selection is processed
+    setTimeout(maybeShowOverlay, 150);
   }
 }, true); // Use capture phase
+
+// Also track mousemove to get more accurate positioning
+document.addEventListener("mousemove", (e) => {
+  // Only update if we're in a code editor or text area
+  const isCodeEditor = e.target.closest('[data-cy="code-editor"], .monaco-editor, .CodeMirror, [role="textbox"]');
+  if (isCodeEditor) {
+    lastMousePosition.x = e.clientX;
+    lastMousePosition.y = e.clientY;
+  }
+});
 
 document.addEventListener("keyup", (e) => {
   if (e.key === "Escape") hideOverlay();
