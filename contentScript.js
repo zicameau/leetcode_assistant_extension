@@ -136,7 +136,12 @@ let overlayVisible = false;
 let overlayHideTimer = null;
 
 function ensureOverlay() {
-  if (overlayBtn) return overlayBtn;
+  if (overlayBtn) {
+    console.log("🔘 Using existing overlay button");
+    return overlayBtn;
+  }
+  
+  console.log("🔧 Creating new overlay button");
   overlayBtn = document.createElement("button");
   overlayBtn.type = "button";
   overlayBtn.textContent = "💬 Ask"; // compact label; can be A/B tested
@@ -200,10 +205,33 @@ function ensureOverlay() {
 
 function getSelectionRect() {
   const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0) return null;
+  console.log("📐 getSelectionRect called, selection:", {
+    exists: !!sel,
+    rangeCount: sel?.rangeCount || 0,
+    isCollapsed: sel?.isCollapsed
+  });
+  
+  if (!sel || sel.rangeCount === 0) {
+    console.log("❌ No selection or no ranges");
+    return null;
+  }
+  
   const range = sel.getRangeAt(0);
   const rect = range.getBoundingClientRect();
-  if (!rect || (rect.width === 0 && rect.height === 0)) return null;
+  console.log("📐 Range rect:", {
+    rect: rect,
+    width: rect.width,
+    height: rect.height,
+    left: rect.left,
+    top: rect.top
+  });
+  
+  if (!rect || (rect.width === 0 && rect.height === 0)) {
+    console.log("❌ Invalid rect (zero dimensions)");
+    return null;
+  }
+  
+  console.log("✅ Valid selection rect found");
   return rect;
 }
 
@@ -227,8 +255,15 @@ function getSelectedText() {
 
 function positionOverlayNearSelection() {
   const rect = getSelectionRect();
-  if (!rect) return hideOverlay();
+  console.log("🎯 positionOverlayNearSelection called, rect:", rect);
+  
+  if (!rect) {
+    console.log("❌ No selection rect, hiding overlay");
+    return hideOverlay();
+  }
+  
   const btn = ensureOverlay();
+  console.log("🔘 Overlay button created/found:", !!btn);
   
   // Calculate position relative to viewport
   const x = rect.left + rect.width / 2;
@@ -248,15 +283,25 @@ function positionOverlayNearSelection() {
   console.log("📍 Positioning overlay:", {
     selectionRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
     finalPosition: { x: finalX, y: finalY },
-    viewport: { width: window.innerWidth, height: window.innerHeight }
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    buttonStyles: {
+      display: btn.style.display,
+      opacity: btn.style.opacity,
+      left: btn.style.left,
+      top: btn.style.top
+    }
   });
   
   if (!overlayVisible) {
+    console.log("👁️ Making overlay visible");
     btn.style.display = "block";
     requestAnimationFrame(() => {
       btn.style.opacity = "1";
+      console.log("✨ Overlay should now be visible");
     });
     overlayVisible = true;
+  } else {
+    console.log("👁️ Overlay already visible, just repositioning");
   }
 }
 
