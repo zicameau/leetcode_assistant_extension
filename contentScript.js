@@ -226,8 +226,67 @@ function getSelectionRect() {
     top: rect.top
   });
   
+  // If rect has zero dimensions, try alternative methods
   if (!rect || (rect.width === 0 && rect.height === 0)) {
-    console.log("❌ Invalid rect (zero dimensions)");
+    console.log("⚠️ Zero dimensions, trying alternative methods...");
+    
+    // Method 1: Try to get rects from all ranges
+    const rects = range.getClientRects();
+    console.log("📐 Client rects:", rects);
+    
+    if (rects && rects.length > 0) {
+      // Use the first non-zero rect
+      for (let i = 0; i < rects.length; i++) {
+        const r = rects[i];
+        if (r.width > 0 || r.height > 0) {
+          console.log("✅ Found valid client rect:", r);
+          return r;
+        }
+      }
+    }
+    
+    // Method 2: Try to get the container element and use its position
+    const container = range.commonAncestorContainer;
+    console.log("📐 Container:", container);
+    
+    if (container && container.nodeType === Node.ELEMENT_NODE) {
+      const containerRect = container.getBoundingClientRect();
+      console.log("📐 Container rect:", containerRect);
+      
+      if (containerRect.width > 0 && containerRect.height > 0) {
+        // Use container position as fallback
+        console.log("✅ Using container rect as fallback");
+        return {
+          left: containerRect.left,
+          top: containerRect.top,
+          width: Math.max(containerRect.width, 100), // minimum width
+          height: Math.max(containerRect.height, 20), // minimum height
+          right: containerRect.right,
+          bottom: containerRect.bottom
+        };
+      }
+    }
+    
+    // Method 3: Try to find the active element (cursor position)
+    const activeElement = document.activeElement;
+    if (activeElement && activeElement.getBoundingClientRect) {
+      const activeRect = activeElement.getBoundingClientRect();
+      console.log("📐 Active element rect:", activeRect);
+      
+      if (activeRect.width > 0 && activeRect.height > 0) {
+        console.log("✅ Using active element rect as fallback");
+        return {
+          left: activeRect.left,
+          top: activeRect.top,
+          width: Math.max(activeRect.width, 100),
+          height: Math.max(activeRect.height, 20),
+          right: activeRect.right,
+          bottom: activeRect.bottom
+        };
+      }
+    }
+    
+    console.log("❌ All methods failed - no valid rect found");
     return null;
   }
   
@@ -332,7 +391,81 @@ function maybeShowOverlay() {
     isCode: /[{}();=<>]/.test(text) || text.includes('\n') || text.includes('\t')
   });
   
-  positionOverlayNearSelection();
+  // Try to position overlay, but if it fails, try alternative positioning
+  const rect = getSelectionRect();
+  if (!rect) {
+    console.log("⚠️ No selection rect, trying alternative positioning...");
+    
+    // Alternative: Position near mouse cursor or active element
+    const activeElement = document.activeElement;
+    if (activeElement && activeElement.getBoundingClientRect) {
+      const activeRect = activeElement.getBoundingClientRect();
+      console.log("📍 Using active element for positioning:", activeRect);
+      
+      // Create a fake rect for positioning
+      const fakeRect = {
+        left: activeRect.left,
+        top: activeRect.top,
+        width: Math.max(activeRect.width, 100),
+        height: Math.max(activeRect.height, 20),
+        right: activeRect.right,
+        bottom: activeRect.bottom
+      };
+      
+      positionOverlayWithRect(fakeRect);
+    } else {
+      console.log("❌ No fallback positioning available");
+      return hideOverlay();
+    }
+  } else {
+    positionOverlayNearSelection();
+  }
+}
+
+function positionOverlayWithRect(rect) {
+  console.log("🎯 positionOverlayWithRect called, rect:", rect);
+  
+  const btn = ensureOverlay();
+  console.log("🔘 Overlay button created/found:", !!btn);
+  
+  // Calculate position relative to viewport
+  const x = rect.left + rect.width / 2;
+  const y = rect.top; // above selection
+  
+  // Ensure button stays within viewport bounds
+  const buttonWidth = 80; // approximate button width
+  const buttonHeight = 32; // approximate button height
+  
+  const finalX = Math.min(Math.max(x - buttonWidth/2, 8), window.innerWidth - buttonWidth - 8);
+  const finalY = Math.max(y - buttonHeight - 4, 8); // 4px gap above selection
+  
+  btn.style.left = `${finalX}px`;
+  btn.style.top = `${finalY}px`;
+  
+  // Debug positioning
+  console.log("📍 Positioning overlay with rect:", {
+    selectionRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+    finalPosition: { x: finalX, y: finalY },
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    buttonStyles: {
+      display: btn.style.display,
+      opacity: btn.style.opacity,
+      left: btn.style.left,
+      top: btn.style.top
+    }
+  });
+  
+  if (!overlayVisible) {
+    console.log("👁️ Making overlay visible");
+    btn.style.display = "block";
+    requestAnimationFrame(() => {
+      btn.style.opacity = "1";
+      console.log("✨ Overlay should now be visible");
+    });
+    overlayVisible = true;
+  } else {
+    console.log("👁️ Overlay already visible, just repositioning");
+  }
 }
 
 // Enhanced selection detection for code editors
