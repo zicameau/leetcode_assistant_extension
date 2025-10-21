@@ -4,12 +4,17 @@ const promptEl = document.getElementById("prompt");
 const sendBtn = document.getElementById("sendBtn");
 const problemMetaEl = document.getElementById("problemMeta");
 const openOptionsBtn = document.getElementById("openOptions");
+const resetChatBtn = document.getElementById("resetChat");
 
 let currentProblem = null;
 let selectionBuffer = null;
 
 openOptionsBtn.addEventListener("click", async () => {
   if (chrome.runtime?.openOptionsPage) chrome.runtime.openOptionsPage();
+});
+
+resetChatBtn?.addEventListener("click", () => {
+  resetConversation({ keepProblem: true });
 });
 
 function addMessage(role, content) {
@@ -42,6 +47,17 @@ function setProblemMeta(info) {
   }
   const slug = info.slug.replace(/-/g, " ");
   problemMetaEl.textContent = `${slug}${info.questionId ? ` · #${info.questionId}` : ""}`;
+}
+
+function resetConversation(options = {}) {
+  const keepProblem = options.keepProblem === true;
+  messagesEl.innerHTML = "";
+  selectionBuffer = null;
+  try { chrome.storage?.local?.remove?.(["leetcodeLastSelection"]); } catch (_) {}
+  if (!keepProblem) {
+    currentProblem = null;
+    setProblemMeta(null);
+  }
 }
 
 async function loadProblemFromStorage() {
@@ -117,6 +133,22 @@ formEl.addEventListener("submit", async (e) => {
 (async function init() {
   currentProblem = await loadProblemFromStorage();
   setProblemMeta(currentProblem);
+  // Watch for problem changes from content script
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    if (changes.leetcodeProblem) {
+      const newProblem = changes.leetcodeProblem.newValue || null;
+      const prevSlug = currentProblem?.slug;
+      const newSlug = newProblem?.slug;
+      const slugChanged = prevSlug && newSlug ? prevSlug !== newSlug : prevSlug !== newSlug;
+      if (slugChanged) {
+        currentProblem = newProblem;
+        setProblemMeta(currentProblem);
+        // Auto reset chat on problem change
+        resetConversation({ keepProblem: true });
+      }
+    }
+  });
   // If a selection was just sent, pull and auto-send
   chrome.runtime.onMessage.addListener((message) => {
     if (message?.type === 'leetcodeSelectionReady') {
