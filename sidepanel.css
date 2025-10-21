@@ -30,8 +30,11 @@ body {
 .title { display: flex; flex-direction: column; gap: 2px; }
 .name { font-weight: 600; }
 .meta { color: var(--muted); font-size: 12px; }
-.optionsBtn { margin-left: auto; background: transparent; border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.headerActions { margin-left: auto; display: flex; gap: 8px; }
+.optionsBtn { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 6px; cursor: pointer; }
 .optionsBtn:hover { border-color: var(--accent); }
+.resetBtn { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.resetBtn:hover { border-color: var(--accent); }
 
 .messages {
   flex: 1;
