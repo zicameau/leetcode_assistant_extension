@@ -82,5 +82,439 @@ Our LeetCode extension, available in **8 weeks**, is a browser tool that enhance
 ---
 
 ## Architecture
-TBD
-To be continued
+
+### File Structure
+```
+leetcode_assistant_extension/
+├── manifest.json          # Extension configuration (Manifest V3)
+├── contentScript.js       # Runs on LeetCode pages, detects problems
+├── background.js          # Service worker, manages side panel & API
+├── sidepanel.html         # Chat interface UI
+├── sidepanel.js           # Chat logic and messaging
+├── sidepanel.css          # Styling for side panel
+├── options.html           # Settings page UI
+├── options.js             # Settings page logic
+├── chatapp2.py            # Standalone Streamlit chatbot (optional)
+├── requirements.txt       # Python dependencies for Streamlit
+├── leetcode-600x400.png   # Extension icon
+└── README.md              # This file
+```
+
+### Component Flow
+
+```
+┌─────────────────────┐
+│  LeetCode.com       │ ← User visits problem page
+│  (Problem Page)     │
+└──────────┬──────────┘
+           │
+           ↓ Detects problem & selections
+┌─────────────────────┐
+│  contentScript.js   │ • Extracts problem slug/ID
+│                     │ • Monitors URL changes (SPA)
+│                     │ • Shows "Ask Assistant" button on text selection
+│                     │ • Sends messages to background
+└──────────┬──────────┘
+           │
+           ↓ chrome.runtime.sendMessage()
+┌─────────────────────┐
+│  background.js      │ • Manages side panel state
+│  (Service Worker)   │ • Stores data in chrome.storage
+│                     │ • Makes OpenAI API calls
+│                     │ • Routes messages between components
+└──────────┬──────────┘
+           │
+           ↓ Opens & communicates with
+┌─────────────────────┐
+│  sidepanel.html/js  │ • Chat interface
+│                     │ • Displays current problem
+│                     │ • Sends user questions to OpenAI
+│                     │ • Shows AI responses
+│                     │ • Manages conversation history
+└─────────────────────┘
+           │
+           ↓ API calls via background.js
+┌─────────────────────┐
+│  OpenAI API         │ • GPT-4o-mini responses
+│  (gpt-4o-mini)      │ • Uses LeetCode coaching system prompt
+└─────────────────────┘
+```
+
+### Key Technologies
+- **Manifest V3** - Latest Chrome extension standard
+- **Vanilla JavaScript** - No frameworks for lightweight performance
+- **Chrome APIs**: Storage, Side Panel, Scripting, Messaging
+- **OpenAI Chat Completions API** - GPT-4o-mini
+- **Monaco Editor Detection** - Handles LeetCode's code editor
+- **MutationObserver** - Tracks DOM changes for SPA navigation
+
+---
+
+## Permissions
+
+The extension requires the following Chrome permissions:
+
+| Permission | Purpose |
+|------------|---------|
+| `sidePanel` | Display the chat interface as a side panel |
+| `storage` | Store API key, problem data, and conversation history locally |
+| `activeTab` | Read content from the current LeetCode tab |
+| `scripting` | Inject content scripts into LeetCode pages |
+
+### Host Permissions
+
+| Host | Purpose |
+|------|---------|
+| `https://leetcode.com/*` | Access LeetCode.com pages |
+| `https://*.leetcode.com/*` | Access LeetCode subdomains |
+| `https://leetcode.cn/*` | Support Chinese LeetCode |
+| `https://*.leetcode.cn/*` | Support Chinese LeetCode subdomains |
+| `https://api.openai.com/*` | Make API calls to OpenAI |
+
+**Privacy Note**: All data stays local. We don't send anything to third-party servers except OpenAI using your key.
+
+---
+
+## Getting Started
+
+### Prerequisites
+- **Google Chrome** (version 114+) or **Chromium-based browser**
+- **OpenAI API Key** - Get one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+
+### Installation
+
+#### Option 1: Load Unpacked (Developer Mode)
+
+1. **Clone or download** this repository:
+   ```bash
+   git clone https://github.com/yourusername/leetcode_assistant_extension.git
+   cd leetcode_assistant_extension
+   ```
+
+2. **Open Chrome Extensions** page:
+   - Navigate to `chrome://extensions/`
+   - Or click Menu (⋮) → Extensions → Manage Extensions
+
+3. **Enable Developer Mode**:
+   - Toggle the switch in the top-right corner
+
+4. **Load the extension**:
+   - Click "Load unpacked"
+   - Select the `leetcode_assistant_extension` folder
+
+5. **Verify installation**:
+   - You should see "LeetCode Assistant" in your extensions list
+   - The extension icon should appear in your toolbar
+
+#### Option 2: Chrome Web Store (Coming Soon)
+*The extension will be published to the Chrome Web Store in the future.*
+
+---
+
+## Configuration
+
+### Set Up Your OpenAI API Key
+
+1. **Open Extension Settings**:
+   - **Method 1**: Right-click the extension icon → "Options"
+   - **Method 2**: Go to `chrome://extensions/` → Click "Details" under LeetCode Assistant → "Extension options"
+
+2. **Enter Your API Key**:
+   - Paste your OpenAI API key (starts with `sk-...`)
+   - Click "Save"
+
+3. **Security**:
+   - Your API key is stored **locally** in your browser using `chrome.storage.local`
+   - It's **never sent** to any server except OpenAI's official API
+   - You can clear it anytime from the options page
+
+---
+
+## Usage
+
+### Basic Workflow
+
+1. **Visit a LeetCode problem**:
+   - Go to any problem page, e.g., `https://leetcode.com/problems/two-sum/`
+
+2. **Open the assistant**:
+   - Click the extension icon in your toolbar
+   - The side panel will open on the right side
+
+3. **Verify problem detection**:
+   - You should see the problem name at the top (e.g., "two sum · #1")
+   - If not detected, refresh the page
+
+4. **Ask questions**:
+   - Type your question in the input box
+   - Examples:
+     - "Can you give me a hint for this problem?"
+     - "What pattern should I use?"
+     - "Explain the two pointers approach"
+     - "What's the time complexity of a brute force solution?"
+
+5. **Get contextual help**:
+   - The AI knows which problem you're on
+   - It provides hints before full solutions
+   - Explanations include time/space complexity
+
+### Advanced Features
+
+#### Selection-Based Questions
+
+1. **Select text or code** on the LeetCode page
+2. Wait for the **"💬 Ask Assistant"** button to appear near your selection
+3. Click it to send the selection to the chat
+4. The side panel opens automatically with your selection ready to analyze
+
+This is useful for:
+- Getting explanations of specific code snippets
+- Asking about error messages
+- Understanding problem constraints
+- Analyzing test cases
+
+#### Resetting the Conversation
+
+- Click the **↩️ Reset** button in the side panel header
+- This clears the chat history but keeps the current problem context
+- Useful when switching approaches or starting fresh
+
+#### Navigation Handling
+
+- The extension **automatically detects** when you navigate to a new problem
+- The chat **auto-resets** when the problem changes
+- Problem metadata updates in real-time
+
+---
+
+## Prompts & Guardrails
+
+### System Prompt Philosophy
+
+The assistant uses a carefully crafted system prompt that emphasizes:
+
+1. **Educational Focus**:
+   - Teach problem-solving patterns (two pointers, sliding window, DP, etc.)
+   - Encourage understanding over memorization
+   - Build algorithmic thinking skills
+
+2. **Hints-First Approach**:
+   - Provides **incremental hints** before revealing solutions
+   - Uses Socratic questioning: "What if you kept a window invariant?"
+   - Escalates only when needed: small hint → bigger hint → outline → full solution
+
+3. **Structured Framework**:
+   - Restate the problem clearly
+   - Identify constraints and edge cases
+   - Design examples (including tricky ones)
+   - Start with brute force, then optimize
+   - Explain correctness (invariants, proofs)
+   - Analyze time/space complexity
+   - Provide clean, commented code
+
+4. **Code Quality**:
+   - Readable variable names
+   - Helper functions for clarity
+   - Brief docstrings and inline comments
+   - Handles edge cases explicitly
+
+### Guardrails & Safety
+
+The system prompt includes explicit boundaries:
+
+- ❌ **No contest cheating**: Won't solve active contest problems in real-time
+- ❌ **No plagiarism**: Encourages understanding, not copy-paste
+- ❌ **No guarantees**: Reminds users that practice and judgment are required
+- ✅ **Privacy-respecting**: Never requests sensitive personal data
+- ✅ **Educational purpose**: Clear that it's a learning tool
+
+### Pattern Categories Covered
+
+The assistant is trained to explain these common patterns:
+- Two pointers, sliding window, fast/slow pointers
+- Prefix/suffix arrays, monotonic stack
+- Heap/priority queue, binary search
+- Intervals, graphs (BFS/DFS/Topo), union-find
+- Backtracking, dynamic programming (1D/2D/knapsack)
+- Trees, tries, segment trees, Fenwick trees
+- Bit manipulation, mathematical patterns
+
+---
+
+## Roadmap (8 weeks)
+
+### ✅ Completed (Weeks 1-2)
+- [x] Basic extension structure (Manifest V3)
+- [x] Problem detection on LeetCode pages
+- [x] Side panel chat interface
+- [x] OpenAI integration with user API keys
+- [x] Selection helper for text/code
+- [x] SPA navigation handling
+- [x] LeetCode coaching system prompt
+
+### 💡 Long-term Ideas
+- Visual algorithm animations
+- Multi-model support (Claude, Gemini)
+- Collaborative study features
+- Mobile companion app
+- Voice input/output
+
+---
+
+## Contributing
+
+We welcome contributions! Here's how you can help:
+
+### Reporting Issues
+
+1. Check if the issue already exists
+2. Provide clear reproduction steps
+3. Include:
+   - Chrome version
+   - Extension version
+   - LeetCode URL where issue occurs
+   - Console errors (if any)
+
+### Suggesting Features
+
+1. Open an issue with the `enhancement` label
+2. Describe the use case and benefits
+3. Consider implementation complexity
+
+### Code Contributions
+
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/amazing-feature`
+3. **Make** your changes
+4. **Test** thoroughly on LeetCode pages
+5. **Commit**: `git commit -m "Add amazing feature"`
+6. **Push**: `git push origin feature/amazing-feature`
+7. **Open** a Pull Request
+
+### Development Setup
+
+```bash
+# Clone your fork
+git clone https://github.com/yourusername/leetcode_assistant_extension.git
+cd leetcode_assistant_extension
+
+# Make changes, then reload the extension in Chrome
+# Go to chrome://extensions/ → Click reload icon
+```
+
+### Code Style
+
+- Use **vanilla JavaScript** (no frameworks)
+- Follow **modern ES6+ syntax**
+- Add **comments** for complex logic
+- Keep functions **small and focused**
+- Use **meaningful variable names**
+
+---
+
+## Security & Privacy
+
+### Data Handling
+
+✅ **What we DO**:
+- Store your API key **locally** in browser storage
+- Store problem metadata and chat history **locally**
+- Send API requests **directly** to OpenAI from your browser
+
+❌ **What we DON'T do**:
+- Collect or transmit your data to third-party servers
+- Store data in the cloud
+- Track your usage or analytics
+- Share your code or conversations
+- Require account registration
+
+### API Key Security
+
+- Your OpenAI API key is stored using `chrome.storage.local`
+- Only accessible by this extension
+- Transmitted **only** to `api.openai.com` over HTTPS
+- You can delete it anytime from the options page
+
+### Permissions Justification
+
+Every permission has a specific purpose (see [Permissions](#permissions) section). We request **only** what's necessary for functionality.
+
+### Open Source
+
+- All code is **publicly auditable**
+- No obfuscation or hidden behavior
+- Community can verify safety
+
+### Recommendations
+
+- Use a **restricted OpenAI API key** with spending limits
+- Monitor your OpenAI usage at [platform.openai.com/usage](https://platform.openai.com/usage)
+- Don't share your API key with others
+- Review extension permissions before installing
+
+---
+
+## License
+
+**MIT License**
+
+Copyright (c) 2025 LeetCode Assistant Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Acknowledgments
+
+- **LeetCode** for providing an excellent platform for algorithm practice
+- **OpenAI** for the powerful GPT models
+- The **Chrome Extensions** team for the Side Panel API
+- Our **contributors** and **users** for feedback and improvements
+
+---
+
+## Support
+
+- 📧 **Issues**: [GitHub Issues](https://github.com/yourusername/leetcode_assistant_extension/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/yourusername/leetcode_assistant_extension/discussions)
+- 📚 **Documentation**: This README
+
+---
+
+## Disclaimer
+
+This extension is an **educational tool** designed to help you **learn** algorithms and data structures. It should be used to:
+
+- ✅ Understand concepts and patterns
+- ✅ Get hints when stuck
+- ✅ Learn from explanations
+- ✅ Practice problem-solving
+
+It should **NOT** be used to:
+- ❌ Cheat on interviews or assessments
+- ❌ Submit AI-generated code as your own
+- ❌ Bypass the learning process
+
+**Use responsibly and ethically.** The goal is to improve your skills, not to shortcut the learning process.
+
+---
+
+**Made with ❤️ for LeetCode learners everywhere**
+
+Happy coding! 🚀
