@@ -339,3 +339,77 @@ window.debugLeetCodeAssistant = function() {
 };
 
 console.log("🛠️ Debug function available: window.debugLeetCodeAssistant()");
+
+// ================= Editor Code Capture Bridge =================
+// Load a page-context script via src to satisfy CSP and access Monaco APIs.
+
+(function injectEditorBridge() {
+  try {
+    const existing = document.getElementById('leetcode-editor-bridge');
+    if (existing) return;
+    const s = document.createElement('script');
+    s.id = 'leetcode-editor-bridge';
+    s.src = chrome.runtime.getURL('pageBridge.js');
+    s.async = false;
+    (document.head || document.documentElement).appendChild(s);
+  } catch (_) {}
+})();
+
+function requestEditorCode({ timeoutMs = 1500 } = {}) {
+  return new Promise((resolve, reject) => {
+    const requestId = Math.random().toString(36).slice(2);
+    let done = false;
+    function cleanup() {
+      window.removeEventListener('message', onMessage);
+      clearTimeout(timer);
+    }
+    function onMessage(evt) {
+      const data = evt?.data;
+      if (!data || data.type !== 'leetcodeCodeResponse' || data.requestId !== requestId) return;
+      done = true;
+      cleanup();
+      if (data.ok) {
+        resolve({ code: data.code || '', language: data.language || null, source: data.source || null, length: data.length || 0 });
+      } else {
+        reject(new Error(data.error || 'Failed to capture code'));
+      }
+    }
+    const timer = setTimeout(() => {
+      if (done) return;
+      cleanup();
+      reject(new Error('Timed out capturing code'));
+    }, timeoutMs);
+    window.addEventListener('message', onMessage);
+    window.postMessage({ type: 'leetcodeCodeRequest', requestId }, '*');
+  });
+}
+
+// Handle messages from extension asking for editor code
+try {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === 'getLeetcodeCode') {
+      (async () => {
+        try {
+          const res = await requestEditorCode({ timeoutMs: 2000 });
+          sendResponse(res);
+        } catch (err) {
+          sendResponse({ error: String(err && err.message || err) });
+        }
+      })();
+      return true; // async
+    }
+    return false;
+  });
+} catch (_) {}
+
+// Expose a debug hook to test code capture from the page DevTools console
+window.debugLeetCodeEditorCapture = async function() {
+  try {
+    const res = await requestEditorCode({ timeoutMs: 2000 });
+    console.log('🧪 Captured editor code:', { language: res.language, length: res.length, preview: (res.code || '').slice(0, 200) });
+    return res;
+  } catch (err) {
+    console.warn('🧪 Failed to capture editor code:', err);
+    return null;
+  }
+};

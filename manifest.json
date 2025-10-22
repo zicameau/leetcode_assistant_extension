@@ -14,7 +14,8 @@
     "sidePanel",
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
     "https://api.openai.com/*",
@@ -40,5 +41,18 @@
             "run_at": "document_idle"
         }
   ],
-  "options_page": "options.html"
+  "options_page": "options.html",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "pageBridge.js"
+      ],
+      "matches": [
+        "https://leetcode.com/*",
+        "https://*.leetcode.com/*",
+        "https://leetcode.cn/*",
+        "https://*.leetcode.cn/*"
+      ]
+    }
+  ]
   }
