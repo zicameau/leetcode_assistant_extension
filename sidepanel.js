@@ -103,11 +103,30 @@ formEl.addEventListener("submit", async (e) => {
   addMessage("user", content);
   sendBtn.disabled = true;
   try {
+    // Try to capture current editor code from the active tab (best-effort)
+    let codeContext = null;
+    try {
+      const res = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'requestLeetcodeCode' }, (resp) => resolve(resp));
+      });
+      if (res && !res.error && res.code && res.code.trim().length > 0) {
+        codeContext = res;
+      }
+    } catch (_) {}
+
     const system = {
       role: "system",
       content: `You are a LeetCode assistant. Use the provided problem context when relevant. If the problem is unknown, ask for the slug or link.`,
     };
-    const context = currentProblem ? [{ role: "system", content: `Current problem slug: ${currentProblem.slug}${currentProblem.questionId ? ` (id ${currentProblem.questionId})` : ""}. URL: ${currentProblem.url}` }] : [];
+    const context = [];
+    if (currentProblem) {
+      context.push({ role: "system", content: `Current problem slug: ${currentProblem.slug}${currentProblem.questionId ? ` (id ${currentProblem.questionId})` : ""}. URL: ${currentProblem.url}` });
+    }
+    if (codeContext) {
+      const lang = codeContext.language ? ` (${codeContext.language})` : "";
+      context.push({ role: "system", content: `Current editor code${lang}:
+\n\n${codeContext.code.slice(0, 30000)}` });
+    }
     // show typing indicator while waiting for response
     const typing = document.createElement("span");
     typing.className = "typing";

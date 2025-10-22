@@ -84,6 +84,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
     return true;
   }
+  if (message?.type === 'requestLeetcodeCode') {
+    (async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.id) throw new Error('No active tab');
+        const result = await new Promise((resolve) => {
+          chrome.tabs.sendMessage(tab.id, { type: 'getLeetcodeCode' }, (resp) => {
+            if (chrome.runtime.lastError) {
+              resolve({ error: chrome.runtime.lastError.message });
+            } else {
+              resolve(resp);
+            }
+          });
+        });
+        if (result?.error) throw new Error(result.error);
+        sendResponse?.(result || { code: '', language: null, length: 0 });
+      } catch (err) {
+        sendResponse?.({ error: String(err?.message || err) });
+      }
+    })();
+    return true;
+  }
   return false;
 });
 
