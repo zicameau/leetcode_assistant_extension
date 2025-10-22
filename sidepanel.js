@@ -167,33 +167,97 @@ formEl.addEventListener("submit", async (e) => {
         resetConversation({ keepProblem: true });
       }
     }
-  });
-  // If a selection was just sent, pull and auto-send
-  chrome.runtime.onMessage.addListener((message) => {
-    if (message?.type === 'leetcodeSelectionReady') {
-      void handleIncomingSelection();
+    // Watch for text box population requests
+    if (changes.leetcodeSelectionToTextBox && changes.leetcodeSelectionToTextBox.newValue) {
+      console.log("📥 Side panel: Storage change detected for text box population");
+      void handleIncomingSelectionToTextBox();
+      // Clear the flag
+      chrome.storage.local.remove(['leetcodeSelectionToTextBox']);
     }
   });
-  // Also check storage in case we opened before message arrived
-  await handleIncomingSelection();
+  // Handle incoming messages for text box population
+  chrome.runtime.onMessage.addListener((message) => {
+    console.log("📥 Side panel: Received message:", message);
+    if (message?.type === 'leetcodeSelectionToTextBox') {
+      console.log("📥 Side panel: Handling leetcodeSelectionToTextBox");
+      void handleIncomingSelectionToTextBox();
+    }
+  });
+  
+  // Check for text box population requests when side panel loads
+  const { leetcodeSelectionToTextBox } = await new Promise((resolve) => {
+    chrome.storage.local.get(["leetcodeSelectionToTextBox"], (res) => resolve(res));
+  });
+  if (leetcodeSelectionToTextBox) {
+    console.log("📥 Side panel: Found text box population flag on load");
+    await handleIncomingSelectionToTextBox();
+    chrome.storage.local.remove(['leetcodeSelectionToTextBox']);
+  }
+  
+  // Also check when the side panel becomes visible (in case it was already open but hidden)
+  document.addEventListener('visibilitychange', async () => {
+    if (!document.hidden) {
+      console.log("📥 Side panel: Became visible, checking for text box population flag");
+      const { leetcodeSelectionToTextBox } = await new Promise((resolve) => {
+        chrome.storage.local.get(["leetcodeSelectionToTextBox"], (res) => resolve(res));
+      });
+      if (leetcodeSelectionToTextBox) {
+        console.log("📥 Side panel: Found text box population flag on visibility change");
+        await handleIncomingSelectionToTextBox();
+        chrome.storage.local.remove(['leetcodeSelectionToTextBox']);
+      }
+    }
+  });
+  
+  // Periodic check as final fallback (less frequent)
+  setInterval(async () => {
+    const { leetcodeSelectionToTextBox } = await new Promise((resolve) => {
+      chrome.storage.local.get(["leetcodeSelectionToTextBox"], (res) => resolve(res));
+    });
+    if (leetcodeSelectionToTextBox) {
+      console.log("📥 Side panel: Found text box population flag in periodic check");
+      await handleIncomingSelectionToTextBox();
+      chrome.storage.local.remove(['leetcodeSelectionToTextBox']);
+    }
+  }, 2000);
 })();
 
-async function handleIncomingSelection() {
+
+async function handleIncomingSelectionToTextBox() {
+  console.log("🔄 Side panel: handleIncomingSelectionToTextBox called");
   const { leetcodeLastSelection } = await new Promise((resolve) => {
     chrome.storage.local.get(["leetcodeLastSelection"], (res) => resolve(res));
   });
-  if (!leetcodeLastSelection) return;
-  if (selectionBuffer && selectionBuffer.ts === leetcodeLastSelection.ts) return; // already handled
+  console.log("🔄 Side panel: Retrieved from storage:", leetcodeLastSelection);
+  if (!leetcodeLastSelection) {
+    console.log("❌ Side panel: No selection found in storage");
+    return;
+  }
+  if (selectionBuffer && selectionBuffer.ts === leetcodeLastSelection.ts) {
+    console.log("🔄 Side panel: Selection already handled, skipping");
+    return; // already handled
+  }
   selectionBuffer = leetcodeLastSelection;
   if (leetcodeLastSelection.problem && (!currentProblem || currentProblem.slug !== leetcodeLastSelection.problem.slug)) {
     currentProblem = leetcodeLastSelection.problem;
     setProblemMeta(currentProblem);
   }
   const text = leetcodeLastSelection.text?.trim();
-  if (!text) return;
-  // Post the selection as a user message and auto-send
-  promptEl.value = text;
-  formEl.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  console.log("🔄 Side panel: Text to populate:", text);
+  if (!text) {
+    console.log("❌ Side panel: No text to populate");
+    return;
+  }
+  // Append to existing text in the text box
+  const currentText = promptEl.value.trim();
+  if (currentText) {
+    promptEl.value = currentText + "\n\n" + text;
+  } else {
+    promptEl.value = text;
+  }
+  console.log("✅ Side panel: Text appended to text box");
+  // Focus the text box for better UX
+  promptEl.focus();
 }
 
 

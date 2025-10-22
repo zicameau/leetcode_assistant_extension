@@ -179,15 +179,19 @@ function ensureOverlay() {
       sourceUrl: location.href,
       ts: Date.now(),
     };
-    overlayBtn.textContent = "⏳";
+    console.log("📤 Sending selection to text box:", payload);
     try {
-      chrome.runtime?.sendMessage?.({ type: "leetcodeSelection", payload }, () => {
-        overlayBtn.textContent = "✔";
-        setTimeout(hideOverlay, 500);
+      chrome.runtime?.sendMessage?.({ type: "leetcodeSelectionToTextBox", payload }, (response) => {
+        console.log("📥 Response from background:", response);
+        if (chrome.runtime.lastError) {
+          console.error("❌ Runtime error:", chrome.runtime.lastError);
+        }
+        // Hide overlay immediately after sending
+        hideOverlay();
       });
-    } catch (_) {
-      overlayBtn.textContent = "!";
-      setTimeout(hideOverlay, 800);
+    } catch (err) {
+      console.error("❌ Error sending message:", err);
+      hideOverlay();
     }
   });
 
@@ -239,8 +243,10 @@ function getSelectionRect() {
 
 function getSelectedText() {
   const sel = window.getSelection();
-  if (!sel) return "";
-  return sel.toString().trim();
+  if (!sel || sel.rangeCount === 0) return "";
+  const text = sel.toString();
+  // Return the text even if it's just whitespace - let the overlay decide
+  return text;
 }
 
 function positionOverlayNearSelection() {
@@ -248,13 +254,14 @@ function positionOverlayNearSelection() {
   if (!rect) return hideOverlay();
   const btn = ensureOverlay();
   
-  const x = rect.left + rect.width / 2;
+  // Position at the start of the selection
+  const x = rect.left;
   const y = rect.top;
   
   const buttonWidth = 80;
   const buttonHeight = 32;
   
-  const finalX = Math.min(Math.max(x - buttonWidth/2, 8), window.innerWidth - buttonWidth - 8);
+  const finalX = Math.min(Math.max(x, 8), window.innerWidth - buttonWidth - 8);
   const finalY = Math.max(y - buttonHeight - 4, 8);
   
   btn.style.left = `${finalX}px`;
@@ -283,9 +290,11 @@ function maybeShowOverlay() {
   const text = getSelectedText();
   if (!text) return hideOverlay();
   
-  const cleanText = text.replace(/\s/g, "");
-  if (cleanText.length < 1) return hideOverlay();
+  // Check if there's any meaningful content (not just whitespace)
+  const trimmedText = text.trim();
+  if (trimmedText.length === 0) return hideOverlay();
   
+  // Show overlay for any meaningful text selection
   positionOverlayNearSelection();
 }
 
@@ -309,9 +318,30 @@ document.addEventListener("mouseup", (e) => {
   }
 }, true); // Use capture phase
 
-document.addEventListener("keyup", (e) => {
-  if (e.key === "Escape") hideOverlay();
+// Additional event listeners to catch more selection scenarios
+document.addEventListener("mousedown", () => {
+  // Clear any pending hide timer when user starts selecting
+  clearTimeout(overlayHideTimer);
 });
+
+// Listen for keyboard selection (Shift + arrow keys, etc.)
+document.addEventListener("keyup", (e) => {
+  if (e.key === "Escape") {
+    hideOverlay();
+  } else if (e.shiftKey || e.ctrlKey || e.metaKey) {
+    // User might be selecting with keyboard
+    setTimeout(maybeShowOverlay, 50);
+  }
+});
+
+// Periodic check to ensure overlay shows up (fallback for edge cases)
+setInterval(() => {
+  const text = getSelectedText();
+  if (text && text.trim().length > 0 && !overlayVisible) {
+    console.log("🔄 Periodic check: showing overlay for selection");
+    maybeShowOverlay();
+  }
+}, 500);
 
 window.addEventListener("scroll", () => {
   if (overlayVisible) positionOverlayNearSelection();

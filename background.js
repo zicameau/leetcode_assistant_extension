@@ -61,24 +61,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse?.({ ok: true });
     return true;
   }
-  if (message?.type === "leetcodeSelection") {
+  if (message?.type === "leetcodeSelectionToTextBox") {
+    console.log("🔄 Background: Received leetcodeSelectionToTextBox message", message.payload);
     (async () => {
       try {
         const tabId = sender?.tab?.id;
+        console.log("🔄 Background: Tab ID:", tabId);
         // Store latest selection for the side panel to read
         await chrome.storage.local.set({ leetcodeLastSelection: message.payload });
-        // Ensure side panel is open and focused
-        if (isSidePanelAvailable() && tabId != null) {
-          try { await chrome.sidePanel.open({ tabId }); } catch (_) {}
-          sidePanelOpen.add(tabId);
+        console.log("🔄 Background: Stored selection in storage");
+        // Store a flag to indicate this is a text box population request
+        await chrome.storage.local.set({ leetcodeSelectionToTextBox: true });
+        
+        // Check if side panel is already open for this tab
+        if (isSidePanelAvailable() && sidePanelOpen.has(tabId)) {
+          console.log("🔄 Background: Side panel already open, sending message directly");
+          chrome.runtime.sendMessage({ type: 'leetcodeSelectionToTextBox' });
         } else {
-          // Fallback: open sidepanel page in a new tab
-          chrome.tabs.create({ url: chrome.runtime.getURL('sidepanel.html'), active: true });
+          console.log("🔄 Background: Side panel not open, storing flag for when it opens");
+          // Don't open anything - just store the flag
+          // The side panel will check for this flag when it opens
         }
-        // Notify any sidepanel to pull the latest selection
-        chrome.runtime.sendMessage({ type: 'leetcodeSelectionReady' });
         sendResponse?.({ ok: true });
       } catch (err) {
+        console.error("❌ Background: Error in leetcodeSelectionToTextBox handler:", err);
         sendResponse?.({ error: String(err?.message || err) });
       }
     })();
