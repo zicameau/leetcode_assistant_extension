@@ -1,9 +1,42 @@
 // Track side panel state
 let sidePanelOpen = new Set();
 
+// Track active LeetCode tabs
+let activeLeetCodeTabs = new Set();
+
 // Check if sidePanel API is available
 function isSidePanelAvailable() {
   return chrome.sidePanel && typeof chrome.sidePanel.open === 'function';
+}
+
+// Check if a URL is a LeetCode URL
+function isLeetCodeUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname.includes('leetcode.com') || urlObj.hostname.includes('leetcode.cn');
+  } catch {
+    return false;
+  }
+}
+
+// Update active LeetCode tabs and clear storage if no LeetCode tabs are active
+async function updateActiveLeetCodeTabs() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    const leetCodeTabs = tabs.filter(tab => isLeetCodeUrl(tab.url));
+    const leetCodeTabIds = new Set(leetCodeTabs.map(tab => tab.id));
+    
+    // Update our tracking set
+    activeLeetCodeTabs = leetCodeTabIds;
+    
+    // If no LeetCode tabs are active, clear the problem from storage
+    if (leetCodeTabIds.size === 0) {
+      console.log('No LeetCode tabs active, clearing problem from storage');
+      await chrome.storage.local.remove(['leetcodeProblem']);
+    }
+  } catch (error) {
+    console.error('Error updating active LeetCode tabs:', error);
+  }
 }
 
 // Handle extension icon click to toggle side panel
@@ -53,6 +86,34 @@ if (isSidePanelAvailable() && chrome.sidePanel.onClosed) {
     sidePanelOpen.delete(tabId);
   });
 }
+
+// Listen for tab updates (URL changes, loading state changes)
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  // Only process when URL changes and tab is complete
+  if (changeInfo.url && changeInfo.status === 'complete') {
+    await updateActiveLeetCodeTabs();
+  }
+});
+
+// Listen for tab removal
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  await updateActiveLeetCodeTabs();
+});
+
+// Listen for tab activation (when user switches tabs)
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  await updateActiveLeetCodeTabs();
+});
+
+// Initialize on startup
+chrome.runtime.onStartup.addListener(async () => {
+  await updateActiveLeetCodeTabs();
+});
+
+// Initialize when extension is installed/enabled
+chrome.runtime.onInstalled.addListener(async () => {
+  await updateActiveLeetCodeTabs();
+});
 
 // Store last detected problem for sidepanel to read
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
