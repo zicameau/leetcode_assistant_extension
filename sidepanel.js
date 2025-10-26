@@ -24,18 +24,20 @@ function addMessage(role, content) {
     <div class="avatar">${role === "assistant" ? "🤖" : "🧑"}</div>
     <div>
       <div class="role">${role}</div>
-      <div class="bubble ${role}">${content}</div>
+      <div class="bubble ${role}"></div>
     </div>
   `;
   messagesEl.appendChild(msg);
   const bubbleEl = msg.querySelector(".bubble");
-  if (typeof content === "string") {
-    bubbleEl.textContent = content;
-  } else if (content instanceof Node) {
+  
+  if (content instanceof Node) {
     bubbleEl.appendChild(content);
+  } else if (typeof content === "string") {
+    bubbleEl.textContent = content;
   } else if (content != null) {
     bubbleEl.textContent = String(content);
   }
+  
   messagesEl.scrollTop = messagesEl.scrollHeight;
   return bubbleEl;
 }
@@ -127,19 +129,20 @@ formEl.addEventListener("submit", async (e) => {
       context.push({ role: "system", content: `Current editor code${lang}:
 \n\n${codeContext.code.slice(0, 30000)}` });
     }
-    // show typing indicator while waiting for response
-    const typing = document.createElement("span");
-    typing.className = "typing";
-    typing.innerHTML = "<span>.</span><span>.</span><span>.</span>";
-    const placeholderBubble = addMessage("assistant", typing);
+     // show typing indicator while waiting for response
+     const typing = document.createElement("span");
+     typing.className = "typing";
+     typing.innerHTML = "<span>.</span><span>.</span><span>.</span>";
+     const placeholderBubble = addMessage("assistant", typing);
 
-    const resp = await sendToModel([system, ...context, { role: "user", content }]);
-    placeholderBubble.textContent = resp.content || "(no response)";
+     const resp = await sendToModel([system, ...context, { role: "user", content }]);
+     // Replace the typing indicator with the actual response
+     placeholderBubble.innerHTML = resp.content || "(no response)";
   } catch (err) {
     const lastAssistantBubble = messagesEl.querySelector('.msg:last-child .bubble.assistant');
     const errorMessage = `Error: ${err.message}`;
     if (lastAssistantBubble && lastAssistantBubble.querySelector('.typing')) {
-      lastAssistantBubble.textContent = errorMessage;
+      lastAssistantBubble.innerHTML = errorMessage;
     } else {
       addMessage("assistant", errorMessage);
     }
