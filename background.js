@@ -3,6 +3,7 @@ let sidePanelOpen = new Set();
 
 // Track active LeetCode tabs
 let activeLeetCodeTabs = new Set();
+let currentActiveTab = null;
 
 // Check if sidePanel API is available
 function isSidePanelAvailable() {
@@ -19,7 +20,7 @@ function isLeetCodeUrl(url) {
   }
 }
 
-// Update active LeetCode tabs and clear storage if no LeetCode tabs are active
+// Update active LeetCode tabs and manage storage based on current state
 async function updateActiveLeetCodeTabs() {
   try {
     const tabs = await chrome.tabs.query({});
@@ -29,10 +30,39 @@ async function updateActiveLeetCodeTabs() {
     // Update our tracking set
     activeLeetCodeTabs = leetCodeTabIds;
     
-    // If no LeetCode tabs are active, clear the problem from storage
-    if (leetCodeTabIds.size === 0) {
+    // Get the current active tab
+    const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    currentActiveTab = activeTabs[0] || null;
+    
+    // Determine the current state
+    const hasLeetCodeTabs = leetCodeTabIds.size > 0;
+    const isOnLeetCodeTab = currentActiveTab && isLeetCodeUrl(currentActiveTab.url);
+    
+    console.log('Tab state update:', {
+      hasLeetCodeTabs,
+      isOnLeetCodeTab,
+      currentActiveTabUrl: currentActiveTab?.url,
+      leetCodeTabCount: leetCodeTabIds.size
+    });
+    
+    if (!hasLeetCodeTabs) {
+      // No LeetCode tabs at all - clear everything
       console.log('No LeetCode tabs active, clearing problem from storage');
-      await chrome.storage.local.remove(['leetcodeProblem']);
+      await chrome.storage.local.remove(['leetcodeProblem', 'tabState']);
+    } else if (!isOnLeetCodeTab) {
+      // Has LeetCode tabs but user is on a different tab
+      console.log('User on non-LeetCode tab, storing "go back" state');
+      await chrome.storage.local.set({ 
+        tabState: { 
+          hasLeetCodeTabs: true, 
+          isOnLeetCodeTab: false,
+          message: 'Go back to LeetCode'
+        }
+      });
+    } else {
+      // User is on a LeetCode tab - clear the tab state
+      console.log('User on LeetCode tab, clearing tab state');
+      await chrome.storage.local.remove(['tabState']);
     }
   } catch (error) {
     console.error('Error updating active LeetCode tabs:', error);
@@ -215,6 +245,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // async
   }
   
+  if (message?.type === "debugTabState") {
+    (async () => {
+      try {
+        await updateActiveLeetCodeTabs();
+        const storage = await chrome.storage.local.get(['leetcodeProblem', 'tabState']);
+        sendResponse({ 
+          success: true, 
+          storage,
+          activeLeetCodeTabs: Array.from(activeLeetCodeTabs),
+          currentActiveTab: currentActiveTab?.url
+        });
+      } catch (err) {
+        sendResponse({ error: err.message });
+      }
+    })();
+    return true; // async
+  }
   
   return false;
 });

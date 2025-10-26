@@ -44,11 +44,38 @@ function addMessage(role, content) {
 
 function setProblemMeta(info) {
   if (!info || !info.slug) {
-    problemMetaEl.textContent = "No problem detected";
+    // Don't automatically set "No problem detected" here - let updateTabState handle it
+    // This prevents overriding the "Go back to LeetCode" message
     return;
   }
   const slug = info.slug.replace(/-/g, " ");
   problemMetaEl.textContent = `${slug}${info.questionId ? ` · #${info.questionId}` : ""}`;
+}
+
+async function updateTabState() {
+  try {
+    const result = await new Promise((resolve) => {
+      chrome.storage.local.get(['tabState'], (res) => resolve(res));
+    });
+    
+    console.log('Sidepanel updateTabState:', {
+      tabState: result.tabState,
+      currentProblem: currentProblem,
+      problemMetaElText: problemMetaEl.textContent
+    });
+    
+    if (result.tabState && !currentProblem) {
+      // User is on non-LeetCode tab but LeetCode tabs exist
+      problemMetaEl.textContent = result.tabState.message || "Go back to LeetCode";
+      console.log('Set message to:', problemMetaEl.textContent);
+    } else if (!currentProblem && !result.tabState) {
+      // No LeetCode tabs at all
+      problemMetaEl.textContent = "No problem detected";
+      console.log('Set message to: No problem detected');
+    }
+  } catch (error) {
+    console.error('Error updating tab state:', error);
+  }
 }
 
 function resetConversation(options = {}) {
@@ -153,9 +180,37 @@ formEl.addEventListener("submit", async (e) => {
 
 // Listen for storage changes to update problem display
 chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'local' && changes.leetcodeProblem) {
-    currentProblem = changes.leetcodeProblem.newValue || null;
+  if (namespace !== 'local') return;
+  
+  if (changes.leetcodeProblem) {
+    const newProblem = changes.leetcodeProblem.newValue || null;
+    const prevSlug = currentProblem?.slug;
+    const newSlug = newProblem?.slug;
+    const slugChanged = prevSlug && newSlug ? prevSlug !== newSlug : prevSlug !== newSlug;
+    
+    currentProblem = newProblem;
     setProblemMeta(currentProblem);
+    
+    // Always update tab state after setting problem meta
+    updateTabState();
+    
+    if (slugChanged) {
+      // Auto reset chat on problem change
+      resetConversation({ keepProblem: true });
+    }
+  }
+  
+  if (changes.tabState) {
+    console.log('Sidepanel: tabState changed:', changes.tabState);
+    updateTabState();
+  }
+  
+  // Watch for text box population requests
+  if (changes.leetcodeSelectionToTextBox && changes.leetcodeSelectionToTextBox.newValue) {
+    console.log("📥 Side panel: Storage change detected for text box population");
+    void handleIncomingSelectionToTextBox();
+    // Clear the flag
+    chrome.storage.local.remove(['leetcodeSelectionToTextBox']);
   }
 });
 
@@ -163,29 +218,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 (async function init() {
   currentProblem = await loadProblemFromStorage();
   setProblemMeta(currentProblem);
-  // Watch for problem changes from content script
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local") return;
-    if (changes.leetcodeProblem) {
-      const newProblem = changes.leetcodeProblem.newValue || null;
-      const prevSlug = currentProblem?.slug;
-      const newSlug = newProblem?.slug;
-      const slugChanged = prevSlug && newSlug ? prevSlug !== newSlug : prevSlug !== newSlug;
-      if (slugChanged) {
-        currentProblem = newProblem;
-        setProblemMeta(currentProblem);
-        // Auto reset chat on problem change
-        resetConversation({ keepProblem: true });
-      }
-    }
-    // Watch for text box population requests
-    if (changes.leetcodeSelectionToTextBox && changes.leetcodeSelectionToTextBox.newValue) {
-      console.log("📥 Side panel: Storage change detected for text box population");
-      void handleIncomingSelectionToTextBox();
-      // Clear the flag
-      chrome.storage.local.remove(['leetcodeSelectionToTextBox']);
-    }
-  });
+  await updateTabState();
   // Handle incoming messages for text box population
   chrome.runtime.onMessage.addListener((message) => {
     console.log("📥 Side panel: Received message:", message);
@@ -270,5 +303,29 @@ async function handleIncomingSelectionToTextBox() {
   // Focus the text box for better UX
   promptEl.focus();
 }
+
+// Debug function to test tab state functionality
+window.debugTabState = async function() {
+  console.log('🔧 Debug Tab State');
+  
+  // Get sidepanel state
+  const storage = await new Promise((resolve) => {
+    chrome.storage.local.get(['leetcodeProblem', 'tabState'], (res) => resolve(res));
+  });
+  console.log('Sidepanel Storage:', storage);
+  console.log('Current problem:', currentProblem);
+  console.log('Problem meta element text:', problemMetaEl.textContent);
+  
+  // Get background script state
+  const bgResponse = await new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: 'debugTabState' }, (response) => resolve(response));
+  });
+  console.log('Background Response:', bgResponse);
+  
+  await updateTabState();
+  console.log('After updateTabState:', problemMetaEl.textContent);
+};
+
+console.log("🛠️ Debug functions available: window.debugTabState()");
 
 
