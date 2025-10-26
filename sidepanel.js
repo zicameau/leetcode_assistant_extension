@@ -24,7 +24,7 @@ function addMessage(role, content) {
     <div class="avatar">${role === "assistant" ? "🤖" : "🧑"}</div>
     <div>
       <div class="role">${role}</div>
-      <div class="bubble ${role}"></div>
+      <div class="bubble ${role}">${content}</div>
     </div>
   `;
   messagesEl.appendChild(msg);
@@ -145,6 +145,14 @@ formEl.addEventListener("submit", async (e) => {
     }
   } finally {
     sendBtn.disabled = false;
+  }
+});
+
+// Listen for storage changes to update problem display
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (namespace === 'local' && changes.leetcodeProblem) {
+    currentProblem = changes.leetcodeProblem.newValue || null;
+    setProblemMeta(currentProblem);
   }
 });
 
