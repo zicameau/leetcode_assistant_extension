@@ -249,25 +249,29 @@ class ExpandableTextbox {
     // [FIXED] Update state and height
     this.state.currentHeight = newHeight;
     
-    // [FIXED] Apply height first, then scrollbar settings
+    // [FIXED] Apply height first
     this.textarea.style.height = `${newHeight}px`;
     
     // [FIXED] Force a reflow to ensure height is applied
     this.textarea.offsetHeight;
     
-    // [FIXED] Set overflow based on whether content exceeds max height
-    if (shouldShowScrollbar) {
+    // [FIXED] Now check if content still overflows the visible area after height is set
+    const currentScrollHeight = this.textarea.scrollHeight;
+    const currentClientHeight = this.textarea.clientHeight;
+    
+    // [FIXED] Show scrollbar if content overflows the visible area
+    if (currentScrollHeight > currentClientHeight) {
       this.textarea.style.overflowY = 'auto';
-      // [FIXED] Ensure the height is exactly the max height when scrollbar is needed
-      this.textarea.style.height = `${maxHeight}px`;
-      this.state.currentHeight = maxHeight;
+      shouldShowScrollbar = true;
     } else {
       this.textarea.style.overflowY = 'hidden';
+      shouldShowScrollbar = false;
     }
     
     // [ENHANCED] Debug logging to verify behavior
     console.log(`[ExpandableTextbox] Height: ${Math.round(newHeight)}px, Max: ${Math.round(maxHeight)}px, Scrollable: ${shouldShowScrollbar}, Content: ${scrollHeight}px, ClientHeight: ${this.textarea.clientHeight}px, ScrollHeight: ${this.textarea.scrollHeight}px`);
     console.log(`[ExpandableTextbox] Overflow: ${this.textarea.style.overflowY}, Should show scrollbar: ${shouldShowScrollbar}`);
+    console.log(`[ExpandableTextbox] Final check - ScrollHeight: ${currentScrollHeight}px > ClientHeight: ${currentClientHeight}px = ${currentScrollHeight > currentClientHeight}`);
     
     this.announceChange(`Textbox resized to ${Math.round(newHeight)} pixels${shouldShowScrollbar ? ' (scrollable)' : ''}`);
   }
