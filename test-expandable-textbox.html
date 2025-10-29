@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExpandableTextbox Component Test</title>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --panel: #131a2a;
+            --muted: #9aa4b2;
+            --text: #e5e7eb;
+            --accent: #ffb43a;
+            --border: #253046;
+        }
+
+        * { box-sizing: border-box; }
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            min-height: 100vh;
+        }
+
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .test-section {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .test-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--accent);
+        }
+
+        .test-description {
+            color: var(--muted);
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .test-btn {
+            background: var(--accent);
+            color: #111;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 150ms ease;
+        }
+
+        .test-btn:hover {
+            opacity: 0.8;
+        }
+
+        .test-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .test-output {
+            background: #0e1526;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--text);
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .status.success {
+            background: rgba(34, 197, 94, 0.1);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .status.info {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        /* Include the component styles */
+        .expandable-textbox-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            background: var(--panel);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            transition: all 200ms ease;
+        }
+
+        .expandable-textbox-input {
+            width: 100%;
+            min-height: 40px;
+            border: none;
+            border-radius: 8px;
+            background: #0e1526;
+            color: var(--text);
+            padding: 10px 12px;
+            font: inherit;
+            line-height: 1.3;
+            resize: none;
+            overflow-y: auto;
+            outline: none;
+            transition: height 200ms ease;
+            box-sizing: border-box;
+        }
+
+        .expandable-textbox-input:focus {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        .textbox-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, 0.1);
+            border-top: 1px solid var(--border);
+            border-radius: 0 0 8px 8px;
+        }
+
+        .textbox-toggle-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 150ms ease;
+        }
+
+        .textbox-toggle-btn:hover {
+            border-color: var(--accent);
+            background: rgba(255, 180, 58, 0.1);
+        }
+
+        .textbox-drag-handle {
+            width: 20px;
+            height: 20px;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 4px;
+            cursor: ns-resize;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            line-height: 1;
+            transition: all 150ms ease;
+            user-select: none;
+        }
+
+        .textbox-drag-handle:hover {
+            border-color: var(--accent);
+            background: rgba(255, 180, 58, 0.1);
+        }
+
+        .textbox-drag-handle:active {
+            background: rgba(255, 180, 58, 0.2);
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-section">
+            <div class="test-title">🧪 ExpandableTextbox Component Test</div>
+            <div class="test-description">
+                This test page demonstrates the ExpandableTextbox component functionality. 
+                Try typing, pasting code, using the controls, and resizing the textbox.
+            </div>
+            <div id="status" class="status info">Component initialized successfully</div>
+            
+            <div class="test-controls">
+                <button class="test-btn" onclick="testAutoResize()">Test Auto-Resize</button>
+                <button class="test-btn" onclick="testPasteCode()">Paste Sample Code</button>
+                <button class="test-btn" onclick="testToggle()">Toggle Expansion</button>
+                <button class="test-btn" onclick="testConfig()">Test Configuration</button>
+                <button class="test-btn" onclick="clearTextbox()">Clear</button>
+            </div>
+            
+            <div id="textbox-container"></div>
+            
+            <div class="test-output" id="output">
+                Component ready for testing...
+            </div>
+        </div>
+    </div>
+
+    <script src="ExpandableTextbox.js"></script>
+    <script>
+        let textbox = null;
+        let output = document.getElementById('output');
+        let status = document.getElementById('status');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            output.textContent += `[${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function updateStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        function testAutoResize() {
+            log('Testing auto-resize functionality...');
+            const sampleText = `This is a test of the auto-resize functionality.
+            
+The textbox should automatically expand as we add more lines.
+
+Let's add some more content to see how it handles multiple lines and longer text.
+
+This should trigger the auto-resize behavior and show how smoothly it transitions between different heights.
+
+The component should maintain proper formatting and handle line breaks correctly.`;
+
+            textbox.setValue(sampleText);
+            updateStatus('Auto-resize test completed', 'success');
+        }
+
+        function testPasteCode() {
+            log('Testing paste functionality with code...');
+            const codeSample = `function fibonacci(n) {
+    if (n <= 1) return n;
+    return fibonacci(n - 1) + fibonacci(n - 2);
+}
+
+// Test the function
+for (let i = 0; i < 10; i++) {
+    console.log(\`fibonacci(\${i}) = \${fibonacci(i)}\`);
+}`;
+
+            textbox.setValue(codeSample);
+            updateStatus('Code paste test completed', 'success');
+        }
+
+        function testToggle() {
+            log('Testing toggle functionality...');
+            textbox.toggleExpansion();
+            const state = textbox.state.isExpanded ? 'expanded' : 'collapsed';
+            updateStatus(`Textbox ${state}`, 'success');
+        }
+
+        function testConfig() {
+            log('Testing configuration changes...');
+            const newConfig = {
+                maxHeightRatio: 0.8,
+                animationDuration: 100,
+                minHeight: 60
+            };
+            
+            textbox.setConfig(newConfig);
+            updateStatus('Configuration updated', 'success');
+        }
+
+        function clearTextbox() {
+            log('Clearing textbox...');
+            textbox.setValue('');
+            updateStatus('Textbox cleared', 'info');
+        }
+
+        // Initialize the component
+        function init() {
+            try {
+                textbox = new ExpandableTextbox({
+                    minHeight: 40,
+                    defaultHeight: 80,
+                    maxHeightRatio: 0.6,
+                    autoExpand: true,
+                    smoothResize: true,
+                    preserveFormatting: true,
+                    enableKeyboardNav: true,
+                    announceChanges: true,
+                    preserveExistingStyles: true,
+                    themeAware: true
+                });
+
+                const container = document.getElementById('textbox-container');
+                container.appendChild(textbox.getContainer());
+
+                // Add event listeners for testing
+                textbox.getTextarea().addEventListener('input', () => {
+                    log(`Input changed: ${textbox.getValue().length} characters`);
+                });
+
+                textbox.getTextarea().addEventListener('paste', () => {
+                    log('Paste event detected');
+                });
+
+                updateStatus('Component initialized successfully', 'success');
+                log('ExpandableTextbox component loaded and ready for testing');
+                log('Try typing, pasting, or using the control buttons above');
+
+            } catch (error) {
+                updateStatus(`Error: ${error.message}`, 'error');
+                log(`Error initializing component: ${error.message}`);
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
