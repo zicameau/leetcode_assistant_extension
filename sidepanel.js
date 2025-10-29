@@ -6,6 +6,9 @@ const problemMetaEl = document.getElementById("problemMeta");
 const openOptionsBtn = document.getElementById("openOptions");
 const resetChatBtn = document.getElementById("resetChat");
 
+// [ADDED] ExpandableTextbox component instance
+let expandableTextbox = null;
+
 let currentProblem = null;
 let selectionBuffer = null;
 
@@ -126,9 +129,17 @@ async function sendToModel(messages) {
 
 formEl.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const content = promptEl.value.trim();
+  // [MODIFIED] Use expandableTextbox to get value
+  const content = expandableTextbox ? expandableTextbox.getValue().trim() : promptEl.value.trim();
   if (!content) return;
-  promptEl.value = "";
+  
+  // [MODIFIED] Clear textbox using expandableTextbox
+  if (expandableTextbox) {
+    expandableTextbox.setValue("");
+  } else {
+    promptEl.value = "";
+  }
+  
   addMessage("user", content);
   sendBtn.disabled = true;
   try {
@@ -214,8 +225,43 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   }
 });
 
+// [ADDED] Initialize ExpandableTextbox component
+function initializeExpandableTextbox() {
+  // Remove existing textarea from form
+  const existingTextarea = document.getElementById("prompt");
+  if (existingTextarea) {
+    existingTextarea.remove();
+  }
+
+  // Create new ExpandableTextbox instance
+  expandableTextbox = new ExpandableTextbox({
+    minHeight: 40,
+    defaultHeight: 80,
+    maxHeightRatio: 0.6,
+    autoExpand: true,
+    smoothResize: true,
+    preserveFormatting: true,
+    enableKeyboardNav: true,
+    announceChanges: true,
+    preserveExistingStyles: true,
+    themeAware: true
+  });
+
+  // Replace the textarea in the form
+  const newTextarea = expandableTextbox.getTextarea();
+  newTextarea.id = "prompt";
+  newTextarea.setAttribute("required", "");
+  formEl.insertBefore(expandableTextbox.getContainer(), sendBtn);
+  
+  // Update the promptEl reference to point to the new textarea
+  window.promptEl = newTextarea;
+}
+
 // Init
 (async function init() {
+  // [ADDED] Initialize expandable textbox first
+  initializeExpandableTextbox();
+  
   currentProblem = await loadProblemFromStorage();
   setProblemMeta(currentProblem);
   await updateTabState();
@@ -292,16 +338,29 @@ async function handleIncomingSelectionToTextBox() {
     console.log("❌ Side panel: No text to populate");
     return;
   }
-  // Append to existing text in the text box
-  const currentText = promptEl.value.trim();
+  // [MODIFIED] Append to existing text in the text box using expandableTextbox
+  const currentText = expandableTextbox ? expandableTextbox.getValue().trim() : promptEl.value.trim();
   if (currentText) {
-    promptEl.value = currentText + "\n\n" + text;
+    const newText = currentText + "\n\n" + text;
+    if (expandableTextbox) {
+      expandableTextbox.setValue(newText);
+    } else {
+      promptEl.value = newText;
+    }
   } else {
-    promptEl.value = text;
+    if (expandableTextbox) {
+      expandableTextbox.setValue(text);
+    } else {
+      promptEl.value = text;
+    }
   }
   console.log("✅ Side panel: Text appended to text box");
-  // Focus the text box for better UX
-  promptEl.focus();
+  // [MODIFIED] Focus the text box for better UX
+  if (expandableTextbox) {
+    expandableTextbox.focus();
+  } else {
+    promptEl.focus();
+  }
 }
 
 // Debug function to test tab state functionality
