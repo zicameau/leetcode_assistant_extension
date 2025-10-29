@@ -91,57 +91,7 @@ body {
   outline-offset: 2px;
 }
 
-.textbox-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 8px;
-  background: rgba(0, 0, 0, 0.1);
-  border-top: 1px solid var(--border);
-  border-radius: 0 0 8px 8px;
-}
-
-.textbox-toggle-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 150ms ease;
-}
-
-.textbox-toggle-btn:hover {
-  border-color: var(--accent);
-  background: rgba(255, 180, 58, 0.1);
-}
-
-.textbox-drag-handle {
-  width: 20px;
-  height: 20px;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 4px;
-  cursor: ns-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  line-height: 1;
-  transition: all 150ms ease;
-  user-select: none;
-}
-
-.textbox-drag-handle:hover {
-  border-color: var(--accent);
-  background: rgba(255, 180, 58, 0.1);
-}
-
-.textbox-drag-handle:active {
-  background: rgba(255, 180, 58, 0.2);
-}
+/* [REMOVED] Manual control styles - toggle button and drag handle removed */
 
 /* [ADDED] Screen reader only class for accessibility */
 .sr-only {

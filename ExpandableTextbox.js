@@ -43,11 +43,10 @@ class ExpandableTextbox {
       dragStartHeight: 0
     };
 
-    // [ADDED] DOM elements (will be set during initialization)
+    // [MODIFIED] DOM elements (will be set during initialization)
     this.container = null;
     this.textarea = null;
-    this.toggleBtn = null;
-    this.dragHandle = null;
+    // [REMOVED] Manual control elements
     this.resizeObserver = null;
     
     // [ADDED] Event listeners storage for cleanup
@@ -133,101 +132,22 @@ class ExpandableTextbox {
   }
 
   /**
-   * [ADDED] Setup control elements (toggle button and drag handle)
+   * [REMOVED] Manual controls setup - no longer needed
    */
   setupControls() {
-    // Create controls container
-    const controlsContainer = document.createElement('div');
-    controlsContainer.className = 'textbox-controls';
-    controlsContainer.id = 'textbox-controls';
-    controlsContainer.style.cssText = `
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 4px 8px;
-      background: rgba(0, 0, 0, 0.1);
-      border-top: 1px solid var(--border, #253046);
-      border-radius: 0 0 8px 8px;
-    `;
-
-    // [ADDED] Toggle button for expand/collapse
-    this.toggleBtn = document.createElement('button');
-    this.toggleBtn.className = 'textbox-toggle-btn';
-    this.toggleBtn.setAttribute('type', 'button');
-    this.toggleBtn.setAttribute('aria-label', 'Toggle textbox size');
-    this.toggleBtn.setAttribute('aria-expanded', 'false');
-    this.toggleBtn.innerHTML = '⤢'; // Expand icon
-    this.toggleBtn.style.cssText = `
-      background: transparent;
-      border: 1px solid var(--border, #253046);
-      color: var(--text, #e5e7eb);
-      padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      transition: all 150ms ease;
-    `;
-
-    // [ADDED] Drag handle for manual resizing
-    this.dragHandle = document.createElement('div');
-    this.dragHandle.className = 'textbox-drag-handle';
-    this.dragHandle.setAttribute('role', 'separator');
-    this.dragHandle.setAttribute('aria-label', 'Resize textbox');
-    this.dragHandle.setAttribute('aria-orientation', 'vertical');
-    this.dragHandle.innerHTML = '⋮⋮'; // Drag handle icon
-    this.dragHandle.style.cssText = `
-      width: 20px;
-      height: 20px;
-      background: transparent;
-      border: 1px solid var(--border, #253046);
-      color: var(--text, #e5e7eb);
-      border-radius: 4px;
-      cursor: ns-resize;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      line-height: 1;
-      transition: all 150ms ease;
-      user-select: none;
-    `;
-
-    // [ADDED] Add hover effects
-    this.addHoverEffects();
-
-    controlsContainer.appendChild(this.toggleBtn);
-    controlsContainer.appendChild(this.dragHandle);
-    this.container.appendChild(controlsContainer);
+    // [REMOVED] Toggle button and drag handle removed as per user request
+    // Component now relies solely on automatic expansion
   }
 
   /**
-   * [ADDED] Add hover effects for interactive elements
+   * [REMOVED] Hover effects for manual controls - no longer needed
    */
   addHoverEffects() {
-    const hoverStyle = `
-      border-color: var(--accent, #ffb43a) !important;
-      background: rgba(255, 180, 58, 0.1) !important;
-    `;
-
-    this.toggleBtn.addEventListener('mouseenter', () => {
-      this.toggleBtn.style.cssText += hoverStyle;
-    });
-
-    this.toggleBtn.addEventListener('mouseleave', () => {
-      this.toggleBtn.style.cssText = this.toggleBtn.style.cssText.replace(hoverStyle, '');
-    });
-
-    this.dragHandle.addEventListener('mouseenter', () => {
-      this.dragHandle.style.cssText += hoverStyle;
-    });
-
-    this.dragHandle.addEventListener('mouseleave', () => {
-      this.dragHandle.style.cssText = this.dragHandle.style.cssText.replace(hoverStyle, '');
-    });
+    // [REMOVED] Manual control hover effects removed as controls are no longer present
   }
 
   /**
-   * [ADDED] Setup event listeners
+   * [MODIFIED] Setup event listeners - removed manual control listeners
    */
   setupEventListeners() {
     // [ADDED] Auto-resize on input
@@ -247,15 +167,7 @@ class ExpandableTextbox {
       }
     });
 
-    // [ADDED] Toggle button functionality
-    this.addEventListener(this.toggleBtn, 'click', () => {
-      this.toggleExpansion();
-    });
-
-    // [ADDED] Drag handle functionality
-    this.addEventListener(this.dragHandle, 'mousedown', (e) => {
-      this.startDrag(e);
-    });
+    // [REMOVED] Toggle button and drag handle event listeners
 
     // [ADDED] Handle window resize to recalculate max height
     this.addEventListener(window, 'resize', () => {
@@ -263,14 +175,7 @@ class ExpandableTextbox {
       this.updateHeight();
     });
 
-    // [ADDED] Handle mouse up globally for drag functionality
-    this.addEventListener(document, 'mouseup', () => {
-      this.endDrag();
-    });
-
-    this.addEventListener(document, 'mousemove', (e) => {
-      this.handleDrag(e);
-    });
+    // [REMOVED] Drag functionality event listeners
 
     // [ADDED] Keyboard navigation
     if (this.config.enableKeyboardNav) {
@@ -279,28 +184,12 @@ class ExpandableTextbox {
   }
 
   /**
-   * [ADDED] Setup keyboard navigation
+   * [MODIFIED] Setup keyboard navigation - removed manual control shortcuts
    */
   setupKeyboardNavigation() {
     this.addEventListener(this.textarea, 'keydown', (e) => {
-      // Ctrl/Cmd + Enter to toggle expansion
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        this.toggleExpansion();
-      }
-      
-      // Escape to collapse if expanded
-      if (e.key === 'Escape' && this.state.isExpanded) {
-        this.collapse();
-      }
-    });
-
-    // [ADDED] Focus management for controls
-    this.addEventListener(this.toggleBtn, 'keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        this.toggleExpansion();
-      }
+      // [REMOVED] Manual control keyboard shortcuts
+      // Textbox now expands automatically based on content
     });
   }
 
@@ -331,22 +220,35 @@ class ExpandableTextbox {
   }
 
   /**
-   * [ADDED] Handle automatic resizing based on content
+   * [MODIFIED] Handle automatic resizing based on content - improved logic
    */
   handleAutoResize() {
     if (this.state.isResizing || !this.config.autoExpand) return;
 
+    // [FIXED] Temporarily reset height to get accurate scrollHeight
+    const currentHeight = this.textarea.style.height;
+    this.textarea.style.height = 'auto';
+    this.textarea.style.overflowY = 'hidden';
+    
     const scrollHeight = this.textarea.scrollHeight;
     const newHeight = Math.max(
       this.config.minHeight,
       Math.min(scrollHeight, this.state.maxHeight)
     );
 
-    if (newHeight !== this.state.currentHeight) {
-      this.state.currentHeight = newHeight;
-      this.updateHeight();
-      this.announceChange(`Textbox resized to ${Math.round(newHeight)} pixels`);
+    // [FIXED] Always update height, even if same, to ensure proper behavior
+    this.state.currentHeight = newHeight;
+    this.updateHeight();
+    
+    // [FIXED] Restore original height if needed for smooth transition
+    if (this.config.smoothResize) {
+      this.textarea.style.height = currentHeight;
+      // Force reflow
+      this.textarea.offsetHeight;
+      this.textarea.style.height = `${newHeight}px`;
     }
+    
+    this.announceChange(`Textbox resized to ${Math.round(newHeight)} pixels`);
   }
 
   /**
@@ -368,88 +270,9 @@ class ExpandableTextbox {
   }
 
   /**
-   * [ADDED] Toggle expansion state
+   * [REMOVED] Manual control methods - no longer needed
+   * All expansion is now automatic based on content
    */
-  toggleExpansion() {
-    if (this.state.isExpanded) {
-      this.collapse();
-    } else {
-      this.expand();
-    }
-  }
-
-  /**
-   * [ADDED] Expand the textbox
-   */
-  expand() {
-    this.state.isExpanded = true;
-    this.state.currentHeight = this.state.maxHeight;
-    this.updateHeight();
-    this.updateToggleButton();
-    this.announceChange('Textbox expanded');
-  }
-
-  /**
-   * [ADDED] Collapse the textbox
-   */
-  collapse() {
-    this.state.isExpanded = false;
-    this.state.currentHeight = this.config.defaultHeight;
-    this.updateHeight();
-    this.updateToggleButton();
-    this.announceChange('Textbox collapsed');
-  }
-
-  /**
-   * [ADDED] Update toggle button appearance
-   */
-  updateToggleButton() {
-    this.toggleBtn.innerHTML = this.state.isExpanded ? '⤋' : '⤢';
-    this.toggleBtn.setAttribute('aria-expanded', this.state.isExpanded.toString());
-  }
-
-  /**
-   * [ADDED] Start drag operation
-   */
-  startDrag(e) {
-    e.preventDefault();
-    this.state.isDragging = true;
-    this.state.dragStartY = e.clientY;
-    this.state.dragStartHeight = this.state.currentHeight;
-    this.dragHandle.style.cursor = 'ns-resize';
-    this.container.style.userSelect = 'none';
-  }
-
-  /**
-   * [ADDED] Handle drag operation
-   */
-  handleDrag(e) {
-    if (!this.state.isDragging) return;
-
-    const deltaY = e.clientY - this.state.dragStartY;
-    const newHeight = Math.max(
-      this.config.minHeight,
-      Math.min(
-        this.state.dragStartHeight + deltaY,
-        this.state.maxHeight
-      )
-    );
-
-    this.state.currentHeight = newHeight;
-    this.updateHeight();
-  }
-
-  /**
-   * [ADDED] End drag operation
-   */
-  endDrag() {
-    if (!this.state.isDragging) return;
-
-    this.state.isDragging = false;
-    this.dragHandle.style.cursor = 'ns-resize';
-    this.container.style.userSelect = '';
-    this.announceChange(`Textbox resized to ${Math.round(this.state.currentHeight)} pixels`);
-  }
 
   /**
    * [ADDED] Calculate maximum height based on viewport
@@ -587,8 +410,7 @@ class ExpandableTextbox {
     // Clear references
     this.container = null;
     this.textarea = null;
-    this.toggleBtn = null;
-    this.dragHandle = null;
+    // [REMOVED] Manual control references
     this.liveRegion = null;
   }
 }
