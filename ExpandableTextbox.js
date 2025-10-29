@@ -169,10 +169,11 @@ class ExpandableTextbox {
 
     // [REMOVED] Toggle button and drag handle event listeners
 
-    // [ADDED] Handle window resize to recalculate max height
+    // [FIXED] Handle window resize to recalculate max height
     this.addEventListener(window, 'resize', () => {
       this.state.maxHeight = this.calculateMaxHeight();
-      this.updateHeight();
+      // [FIXED] Re-trigger auto-resize to ensure proper behavior after resize
+      this.debouncedResize();
     });
 
     // [REMOVED] Drag functionality event listeners
@@ -220,51 +221,71 @@ class ExpandableTextbox {
   }
 
   /**
-   * [MODIFIED] Handle automatic resizing based on content - improved logic
+   * [FIXED] Handle automatic resizing based on content - ensures proper 50-66% screen limit
    */
   handleAutoResize() {
     if (this.state.isResizing || !this.config.autoExpand) return;
 
     // [FIXED] Temporarily reset height to get accurate scrollHeight
-    const currentHeight = this.textarea.style.height;
     this.textarea.style.height = 'auto';
     this.textarea.style.overflowY = 'hidden';
     
     const scrollHeight = this.textarea.scrollHeight;
-    const newHeight = Math.max(
-      this.config.minHeight,
-      Math.min(scrollHeight, this.state.maxHeight)
-    );
-
-    // [FIXED] Always update height, even if same, to ensure proper behavior
-    this.state.currentHeight = newHeight;
-    this.updateHeight();
+    const maxHeight = this.state.maxHeight;
     
-    // [FIXED] Restore original height if needed for smooth transition
-    if (this.config.smoothResize) {
-      this.textarea.style.height = currentHeight;
-      // Force reflow
+    let newHeight;
+    let shouldShowScrollbar = false;
+    
+    if (scrollHeight <= maxHeight) {
+      // Content fits within max height - expand to fit content
+      newHeight = Math.max(this.config.minHeight, scrollHeight);
+      shouldShowScrollbar = false;
+    } else {
+      // Content exceeds max height - STOP expanding and show scrollbar
+      newHeight = maxHeight;
+      shouldShowScrollbar = true;
+    }
+
+    // [FIXED] Update state and height
+    this.state.currentHeight = newHeight;
+    
+    // [FIXED] Apply height and scrollbar settings
+    this.textarea.style.height = `${newHeight}px`;
+    this.textarea.style.overflowY = shouldShowScrollbar ? 'auto' : 'hidden';
+    
+    // [FIXED] Force scrollbar to be visible when needed
+    if (shouldShowScrollbar) {
+      // Ensure scrollbar appears by forcing a reflow
       this.textarea.offsetHeight;
-      this.textarea.style.height = `${newHeight}px`;
     }
     
-    this.announceChange(`Textbox resized to ${Math.round(newHeight)} pixels`);
+    // [ADDED] Debug logging to verify behavior
+    console.log(`[ExpandableTextbox] Height: ${Math.round(newHeight)}px, Max: ${Math.round(maxHeight)}px, Scrollable: ${shouldShowScrollbar}, Content: ${scrollHeight}px`);
+    
+    this.announceChange(`Textbox resized to ${Math.round(newHeight)} pixels${shouldShowScrollbar ? ' (scrollable)' : ''}`);
   }
 
   /**
-   * [ADDED] Update the height of the textarea
+   * [FIXED] Update the height of the textarea with proper scrollbar handling
    */
   updateHeight() {
-    if (this.config.smoothResize) {
-      this.textarea.style.height = `${this.state.currentHeight}px`;
-    } else {
-      this.textarea.style.height = `${this.state.currentHeight}px`;
-    }
+    // [FIXED] Always set the height
+    this.textarea.style.height = `${this.state.currentHeight}px`;
 
-    // [ADDED] Update scrollbar visibility
-    if (this.state.currentHeight >= this.state.maxHeight) {
+    // [FIXED] Properly handle scrollbar visibility based on content vs max height
+    // Force a reflow to get accurate measurements
+    this.textarea.offsetHeight;
+    
+    const scrollHeight = this.textarea.scrollHeight;
+    const maxHeight = this.state.maxHeight;
+    
+    if (scrollHeight > maxHeight) {
+      // Content exceeds max height - show scrollbar and limit height
       this.textarea.style.overflowY = 'auto';
+      this.textarea.style.height = `${maxHeight}px`;
+      this.state.currentHeight = maxHeight; // Update state to reflect actual height
     } else {
+      // Content fits within max height - hide scrollbar
       this.textarea.style.overflowY = 'hidden';
     }
   }
@@ -275,14 +296,17 @@ class ExpandableTextbox {
    */
 
   /**
-   * [ADDED] Calculate maximum height based on viewport
+   * [FIXED] Calculate maximum height based on viewport - ensure 50-66% of screen
    */
   calculateMaxHeight() {
     const viewportHeight = window.innerHeight;
-    return Math.max(
-      this.config.minHeight * 2,
-      Math.floor(viewportHeight * this.config.maxHeightRatio)
-    );
+    // [FIXED] Ensure we use 50-66% of viewport height as requested
+    const calculatedMaxHeight = Math.floor(viewportHeight * this.config.maxHeightRatio);
+    
+    // [FIXED] Ensure minimum reasonable height but respect the ratio
+    const minReasonableHeight = Math.max(this.config.minHeight * 3, 200); // At least 3x min height or 200px
+    
+    return Math.max(minReasonableHeight, calculatedMaxHeight);
   }
 
   /**
