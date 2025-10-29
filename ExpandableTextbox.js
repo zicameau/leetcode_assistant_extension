@@ -255,20 +255,19 @@ class ExpandableTextbox {
     // [FIXED] Force a reflow to ensure height is applied
     this.textarea.offsetHeight;
     
-    // [FIXED] Now set overflow based on whether content still exceeds height
+    // [FIXED] Set overflow based on whether content exceeds max height
     if (shouldShowScrollbar) {
       this.textarea.style.overflowY = 'auto';
-      // [FIXED] Double-check that scrollbar is needed after height is set
-      if (this.textarea.scrollHeight <= this.textarea.clientHeight) {
-        this.textarea.style.overflowY = 'hidden';
-        shouldShowScrollbar = false;
-      }
+      // [FIXED] Ensure the height is exactly the max height when scrollbar is needed
+      this.textarea.style.height = `${maxHeight}px`;
+      this.state.currentHeight = maxHeight;
     } else {
       this.textarea.style.overflowY = 'hidden';
     }
     
-    // [ADDED] Debug logging to verify behavior
-    console.log(`[ExpandableTextbox] Height: ${Math.round(newHeight)}px, Max: ${Math.round(maxHeight)}px, Scrollable: ${shouldShowScrollbar}, Content: ${scrollHeight}px, ClientHeight: ${this.textarea.clientHeight}px`);
+    // [ENHANCED] Debug logging to verify behavior
+    console.log(`[ExpandableTextbox] Height: ${Math.round(newHeight)}px, Max: ${Math.round(maxHeight)}px, Scrollable: ${shouldShowScrollbar}, Content: ${scrollHeight}px, ClientHeight: ${this.textarea.clientHeight}px, ScrollHeight: ${this.textarea.scrollHeight}px`);
+    console.log(`[ExpandableTextbox] Overflow: ${this.textarea.style.overflowY}, Should show scrollbar: ${shouldShowScrollbar}`);
     
     this.announceChange(`Textbox resized to ${Math.round(newHeight)} pixels${shouldShowScrollbar ? ' (scrollable)' : ''}`);
   }
@@ -393,6 +392,27 @@ class ExpandableTextbox {
    */
   focus() {
     this.textarea.focus();
+  }
+
+  /**
+   * [ADDED] Force scrollbar to appear for testing
+   */
+  forceScrollbar() {
+    console.log('[ExpandableTextbox] Forcing scrollbar to appear...');
+    this.textarea.style.overflowY = 'auto';
+    this.textarea.style.height = `${this.state.maxHeight}px`;
+    this.state.currentHeight = this.state.maxHeight;
+    console.log(`[ExpandableTextbox] Forced - Height: ${this.textarea.style.height}, Overflow: ${this.textarea.style.overflowY}`);
+  }
+
+  /**
+   * [ADDED] Test scrollbar detection
+   */
+  testScrollbarDetection() {
+    console.log('[ExpandableTextbox] Testing scrollbar detection...');
+    console.log(`[ExpandableTextbox] Current state - Height: ${this.textarea.style.height}, Overflow: ${this.textarea.style.overflowY}`);
+    console.log(`[ExpandableTextbox] Measurements - ScrollHeight: ${this.textarea.scrollHeight}px, ClientHeight: ${this.textarea.clientHeight}px, MaxHeight: ${this.state.maxHeight}px`);
+    console.log(`[ExpandableTextbox] Should scroll: ${this.textarea.scrollHeight > this.textarea.clientHeight}`);
   }
 
   /**

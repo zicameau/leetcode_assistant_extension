@@ -255,6 +255,16 @@ function initializeExpandableTextbox() {
   
   // Update the promptEl reference to point to the new textarea
   window.promptEl = newTextarea;
+  
+  // [ADDED] Expose debugging methods globally
+  window.testScrollbar = () => expandableTextbox.testScrollbarDetection();
+  window.forceScrollbar = () => expandableTextbox.forceScrollbar();
+  window.testScrollbarWithContent = () => {
+    // Add lots of content to trigger scrollbar
+    const longContent = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8\nLine 9\nLine 10\nLine 11\nLine 12\nLine 13\nLine 14\nLine 15\nLine 16\nLine 17\nLine 18\nLine 19\nLine 20";
+    expandableTextbox.setValue(longContent);
+    console.log('Added long content, check if scrollbar appears...');
+  };
 }
 
 // Init
