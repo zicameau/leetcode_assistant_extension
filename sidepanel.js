@@ -237,7 +237,7 @@ function initializeExpandableTextbox() {
   expandableTextbox = new ExpandableTextbox({
     minHeight: 40,
     defaultHeight: 80,
-    maxHeightRatio: 0.6,
+    maxHeightRatio: 0.6, // [FIXED] 60% of viewport height (half to two-thirds range)
     autoExpand: true,
     smoothResize: true,
     preserveFormatting: true,
