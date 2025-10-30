@@ -5,9 +5,28 @@ const sendBtn = document.getElementById("sendBtn");
 const problemMetaEl = document.getElementById("problemMeta");
 const openOptionsBtn = document.getElementById("openOptions");
 const resetChatBtn = document.getElementById("resetChat");
+const modelSelectEl = document.getElementById("modelSelect");
 
 let currentProblem = null;
 let selectionBuffer = null;
+
+// Model labels
+const MODEL_LABELS = {
+  'gpt-4o': 'GPT-4o',
+  'gpt-4o-mini': 'GPT-4o Mini',
+  'gpt-4-turbo': 'GPT-4 Turbo',
+  'gpt-4': 'GPT-4',
+  'gpt-3.5-turbo': 'GPT-3.5 Turbo',
+  'gemini-2.0-flash-exp': 'Gemini 2.0 Flash',
+  'gemini-1.5-pro': 'Gemini 1.5 Pro',
+  'gemini-1.5-flash': 'Gemini 1.5 Flash',
+  'gemini-pro': 'Gemini Pro',
+  'claude-3-5-sonnet-20241022': 'Claude 3.5 Sonnet (Latest)',
+  'claude-3-5-sonnet-20240620': 'Claude 3.5 Sonnet',
+  'claude-3-opus-20240229': 'Claude 3 Opus',
+  'claude-3-sonnet-20240229': 'Claude 3 Sonnet',
+  'claude-3-haiku-20240307': 'Claude 3 Haiku'
+};
 
 openOptionsBtn.addEventListener("click", async () => {
   if (chrome.runtime?.openOptionsPage) chrome.runtime.openOptionsPage();
@@ -72,16 +91,98 @@ async function saveConversationContext(ctx) {
   chrome.storage.local.set({ leetcodeConversationContext: ctx });
 }
 
-async function getApiKey() {
+async function getSelectedModel() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(["openaiApiKey"], (res) => resolve(res.openaiApiKey || null));
+    chrome.storage.local.get(["selectedModel"], (res) => resolve(res.selectedModel || null));
   });
 }
 
+async function updateModelDropdown() {
+  const data = await new Promise((resolve) => {
+    chrome.storage.local.get(['availableModels', 'selectedModel'], resolve);
+  });
+  
+  console.log('[LeetCode Assistant] Available models:', data.availableModels);
+  
+  // Clear existing options
+  modelSelectEl.innerHTML = '<option value="">⚡ Select model...</option>';
+  
+  let hasModels = false;
+  
+  if (data.availableModels) {
+    // Add OpenAI models
+    if (data.availableModels.openai && data.availableModels.openai.length > 0) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = 'OpenAI';
+      data.availableModels.openai.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = MODEL_LABELS[model] || model;
+        optgroup.appendChild(option);
+      });
+      modelSelectEl.appendChild(optgroup);
+      hasModels = true;
+    }
+    
+    // Add Gemini models
+    if (data.availableModels.gemini && data.availableModels.gemini.length > 0) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = 'Google Gemini';
+      data.availableModels.gemini.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = MODEL_LABELS[model] || model;
+        optgroup.appendChild(option);
+      });
+      modelSelectEl.appendChild(optgroup);
+      hasModels = true;
+    }
+    
+    // Add Claude models
+    if (data.availableModels.claude && data.availableModels.claude.length > 0) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = 'Anthropic Claude';
+      data.availableModels.claude.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = MODEL_LABELS[model] || model;
+        optgroup.appendChild(option);
+      });
+      modelSelectEl.appendChild(optgroup);
+      hasModels = true;
+    }
+  }
+  
+  // Set selected model if it exists
+  if (data.selectedModel) {
+    modelSelectEl.value = data.selectedModel;
+  }
+  
+  // If no models available, show helpful message
+  if (!hasModels) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = '⚠️ Save API keys in settings to detect models';
+    option.disabled = true;
+    modelSelectEl.appendChild(option);
+    console.log('[LeetCode Assistant] No available models - save API keys in settings');
+  } else {
+    console.log('[LeetCode Assistant] Dropdown populated with available models');
+  }
+}
+
+// Handle model selection change
+modelSelectEl.addEventListener('change', async () => {
+  const selectedModel = modelSelectEl.value;
+  if (selectedModel) {
+    await chrome.storage.local.set({ selectedModel });
+  }
+});
+
 async function sendToModel(messages) {
-  const apiKey = await getApiKey();
-  if (!apiKey) {
-    throw new Error("Set API key in options");
+  const selectedModel = await getSelectedModel();
+  if (!selectedModel) {
+    throw new Error("Please select a model from the dropdown below");
   }
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage({
@@ -150,11 +251,21 @@ formEl.addEventListener("submit", async (e) => {
 
 // Init
 (async function init() {
+  // Initialize model dropdown
+  await updateModelDropdown();
+  
   currentProblem = await loadProblemFromStorage();
   setProblemMeta(currentProblem);
   // Watch for problem changes from content script
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
+    
+    // Refresh dropdown when available models or model selection changes
+    if (changes.availableModels || changes.selectedModel) {
+      console.log('[LeetCode Assistant] Available models updated, refreshing dropdown');
+      updateModelDropdown();
+    }
+    
     if (changes.leetcodeProblem) {
       const newProblem = changes.leetcodeProblem.newValue || null;
       const prevSlug = currentProblem?.slug;

@@ -152,7 +152,7 @@ function ensureOverlay() {
   overlayBtn.style.cursor = "pointer";
   overlayBtn.style.userSelect = "none";
   overlayBtn.style.display = "none";
-  overlayBtn.style.transform = "translate(-50%, -120%)";
+  overlayBtn.style.transform = "translate(0, 0)";
   overlayBtn.style.backdropFilter = "saturate(120%) blur(2px)";
   overlayBtn.style.transition = "opacity 120ms ease";
   overlayBtn.style.opacity = "0";
@@ -248,14 +248,19 @@ function positionOverlayNearSelection() {
   if (!rect) return hideOverlay();
   const btn = ensureOverlay();
   
-  const x = rect.left + rect.width / 2;
-  const y = rect.top;
+  // Position at bottom-right of selection with minimal gap
+  const x = rect.right;
+  const y = rect.bottom;
   
-  const buttonWidth = 80;
+  const buttonWidth = 130; // Approximate width of "💬 Ask Assistant" button
   const buttonHeight = 32;
+  const horizontalGap = 8; // Gap from right edge
+  const verticalGap = -4; // Slight overlap to keep it close
   
-  const finalX = Math.min(Math.max(x - buttonWidth/2, 8), window.innerWidth - buttonWidth - 8);
-  const finalY = Math.max(y - buttonHeight - 4, 8);
+  // Position button at bottom-right, slightly overlapping the selection
+  // Ensure it stays within viewport bounds
+  const finalX = Math.min(Math.max(x - buttonWidth - horizontalGap, 8), window.innerWidth - buttonWidth - 8);
+  const finalY = Math.min(Math.max(y + verticalGap, 8), window.innerHeight - buttonHeight - 8);
   
   btn.style.left = `${finalX}px`;
   btn.style.top = `${finalY}px`;
