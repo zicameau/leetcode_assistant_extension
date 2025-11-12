@@ -200,6 +200,8 @@ body {
   background: #1e1e1e;
   border: 1px solid var(--border);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  max-width: 100%; /* Ensure container doesn't exceed parent */
+  box-sizing: border-box; /* Include border in width */
 }
 
 .code-block-header {
@@ -243,14 +245,17 @@ body {
 .code-block {
   margin: 0;
   padding: 16px;
-  overflow-x: auto;
+  overflow-x: hidden; /* [CHANGED] from auto to hidden - prevent horizontal scroll */
   background: #1e1e1e;
   color: #d4d4d4;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
-  white-space: pre;
-  word-wrap: normal;
+  white-space: pre-wrap; /* [CHANGED] from pre to pre-wrap - allows wrapping while preserving formatting */
+  word-wrap: break-word; /* [CHANGED] from normal to break-word - break long words */
+  overflow-wrap: break-word; /* Additional wrapping support */
+  max-width: 100%; /* Ensure code doesn't exceed container */
+  box-sizing: border-box; /* Include padding in width */
 }
 
 .code-block code {
@@ -260,6 +265,9 @@ body {
   background: transparent;
   padding: 0;
   border-radius: 0;
+  white-space: inherit; /* Inherit wrapping behavior */
+  word-wrap: inherit; /* Inherit word wrapping */
+  overflow-wrap: inherit; /* Inherit overflow wrapping */
 }
 
 /* Custom scrollbar for code blocks */
