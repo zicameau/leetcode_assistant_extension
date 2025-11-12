@@ -35,7 +35,7 @@
 - Returns **minimal diffs** that preserve your style and variable names, with explicit **time/space complexity** notes.
 - Explains solution logic **before** revealing a full implementation (unless you ask for it).
 
-> Users authenticate with **their own** OpenAI API key (we don’t pay or collect credentials). Optional **model selection** is supported.
+> Users authenticate with **their own** API keys from OpenAI, Google Gemini, or Anthropic Claude. Choose your preferred AI model from the settings dropdown.
 
 ---
 
@@ -46,8 +46,9 @@
 - ✅ **Logic-first coaching**: explain approach & invariants before full solutions.  
 - ✅ **Time/space complexity feedback** on your current approach and on suggested tweaks.  
 - ✅ **Problem auto-detection & code parsing** (language-aware).  
-- ✅ **User-provided OpenAI key**; we never proxy your usage by default.  
-- ⬜ **Optional model selection** (choose from your available models).  
+- ✅ **Multi-provider support**: OpenAI (GPT-4o, GPT-4, etc.), Google Gemini (1.5 Pro, 2.0 Flash, etc.), and Anthropic Claude (3.5 Sonnet, Opus, etc.)  
+- ✅ **Automatic model detection**: Extension tests your API keys and only shows models you have access to
+- ✅ **Smart model selection**: Dropdown automatically updates based on your account tier  
 
 ---
 
@@ -135,8 +136,10 @@ leetcode_assistant_extension/
            │
            ↓ API calls via background.js
 ┌─────────────────────┐
-│  OpenAI API         │ • GPT-4o-mini responses
-│  (gpt-4o-mini)      │ • Uses LeetCode coaching system prompt
+│  AI Provider APIs   │ • OpenAI (GPT-4o, GPT-4, GPT-3.5, etc.)
+│  (User's Choice)    │ • Google Gemini (1.5 Pro, 2.0 Flash, etc.)
+│                     │ • Anthropic Claude (3.5 Sonnet, Opus, etc.)
+│                     │ • Uses LeetCode coaching system prompt
 └─────────────────────┘
 ```
 
@@ -144,7 +147,10 @@ leetcode_assistant_extension/
 - **Manifest V3** - Latest Chrome extension standard
 - **Vanilla JavaScript** - No frameworks for lightweight performance
 - **Chrome APIs**: Storage, Side Panel, Scripting, Messaging
-- **OpenAI Chat Completions API** - GPT-4o-mini
+- **Multi-provider AI APIs**:
+  - OpenAI Chat Completions API
+  - Google Gemini API
+  - Anthropic Claude Messages API
 - **Monaco Editor Detection** - Handles LeetCode's code editor
 - **MutationObserver** - Tracks DOM changes for SPA navigation
 
@@ -170,8 +176,10 @@ The extension requires the following Chrome permissions:
 | `https://leetcode.cn/*` | Support Chinese LeetCode |
 | `https://*.leetcode.cn/*` | Support Chinese LeetCode subdomains |
 | `https://api.openai.com/*` | Make API calls to OpenAI |
+| `https://generativelanguage.googleapis.com/*` | Make API calls to Google Gemini |
+| `https://api.anthropic.com/*` | Make API calls to Anthropic Claude |
 
-**Privacy Note**: All data stays local. We don't send anything to third-party servers except OpenAI using your key.
+**Privacy Note**: All data stays local. We don't send anything to third-party servers except the AI provider you choose (OpenAI, Google, or Anthropic) using your own API key.
 
 ---
 
@@ -179,7 +187,10 @@ The extension requires the following Chrome permissions:
 
 ### Prerequisites
 - **Google Chrome** (version 114+) or **Chromium-based browser**
-- **OpenAI API Key** - Get one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+- **AI Provider API Key** (at least one):
+  - **OpenAI**: Get one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+  - **Google Gemini**: Get one at [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+  - **Anthropic Claude**: Get one at [console.anthropic.com/account/keys](https://console.anthropic.com/account/keys)
 
 ### Installation
 
@@ -213,20 +224,39 @@ The extension requires the following Chrome permissions:
 
 ## Configuration
 
-### Set Up Your OpenAI API Key
+### Set Up Your API Keys and Model
 
 1. **Open Extension Settings**:
    - **Method 1**: Right-click the extension icon → "Options"
    - **Method 2**: Go to `chrome://extensions/` → Click "Details" under LeetCode Assistant → "Extension options"
+   - **Method 3**: Click the ⚙️ settings icon in the side panel
 
-2. **Enter Your API Key**:
-   - Paste your OpenAI API key (starts with `sk-...`)
-   - Click "Save"
+2. **Enter Your API Key(s)**:
+   You can add one or more API keys from different providers:
+   - **OpenAI API Key**: Paste your key (starts with `sk-...`)
+   - **Google Gemini API Key**: Paste your key (starts with `AIza...`)
+   - **Anthropic Claude API Key**: Paste your key (starts with `sk-ant-...`)
 
-3. **Security**:
-   - Your API key is stored **locally** in your browser using `chrome.storage.local`
-   - It's **never sent** to any server except OpenAI's official API
-   - You can clear it anytime from the options page
+3. **Save and Auto-Detect Models**:
+   - Click "Save" to test your API keys
+   - The extension will automatically detect which models are available for your account
+   - This process takes ~10-30 seconds depending on how many providers you use
+   - You'll see progress: "Testing OpenAI models...", "Testing Gemini models...", etc.
+   - Only minimal API calls (5 tokens each) are used to minimize costs
+
+4. **Select Your Model**:
+   - After detection, the dropdown shows **ONLY** models you have access to
+   - Choose your preferred model from the dropdown
+   - Models vary based on your API tier:
+     - **OpenAI**: May show GPT-4o, GPT-4o Mini, GPT-4 Turbo, GPT-4, GPT-3.5 Turbo
+     - **Google Gemini**: May show Gemini 2.0 Flash, Gemini 1.5 Pro, Gemini 1.5 Flash, Gemini Pro
+     - **Anthropic Claude**: May show Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Sonnet, Claude 3 Haiku
+   - If a model doesn't appear, your API key doesn't have access to it
+
+5. **Security**:
+   - All API keys are stored **locally** in your browser using `chrome.storage.local`
+   - They're **never sent** to any server except the official API of the provider you selected
+   - You can clear them anytime from the options page
 
 ---
 
@@ -352,12 +382,19 @@ The assistant is trained to explain these common patterns:
 - [x] SPA navigation handling
 - [x] LeetCode coaching system prompt
 
+### 🚀 Recently Completed (Week 3)
+- [x] Multi-provider support (OpenAI, Google Gemini, Anthropic Claude)
+- [x] Model selection dropdown in sidepanel
+- [x] Automatic model detection - tests API keys and shows only available models
+- [x] Bidirectional sync between settings and sidepanel
+- [x] Smart dropdown that adapts to account tier
+
 ### 💡 Long-term Ideas
 - Visual algorithm animations
-- Multi-model support (Claude, Gemini)
 - Collaborative study features
 - Mobile companion app
 - Voice input/output
+- Custom model parameters (temperature, max tokens)
 
 ---
 
@@ -430,10 +467,13 @@ cd leetcode_assistant_extension
 
 ### API Key Security
 
-- Your OpenAI API key is stored using `chrome.storage.local`
+- All API keys are stored using `chrome.storage.local`
 - Only accessible by this extension
-- Transmitted **only** to `api.openai.com` over HTTPS
-- You can delete it anytime from the options page
+- Each key is transmitted **only** to its respective official API endpoint over HTTPS:
+  - OpenAI keys → `api.openai.com`
+  - Gemini keys → `generativelanguage.googleapis.com`
+  - Claude keys → `api.anthropic.com`
+- You can delete any or all keys anytime from the options page
 
 ### Permissions Justification
 
@@ -447,9 +487,12 @@ Every permission has a specific purpose (see [Permissions](#permissions) section
 
 ### Recommendations
 
-- Use a **restricted OpenAI API key** with spending limits
-- Monitor your OpenAI usage at [platform.openai.com/usage](https://platform.openai.com/usage)
-- Don't share your API key with others
+- Use **restricted API keys** with spending limits for each provider:
+  - OpenAI: [platform.openai.com/usage](https://platform.openai.com/usage)
+  - Google Gemini: [aistudio.google.com](https://aistudio.google.com)
+  - Anthropic Claude: [console.anthropic.com](https://console.anthropic.com)
+- Monitor your API usage regularly
+- Don't share your API keys with others
 - Review extension permissions before installing
 
 ---
