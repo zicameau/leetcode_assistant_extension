@@ -7,7 +7,7 @@ const openOptionsBtn = document.getElementById("openOptions");
 const resetChatBtn = document.getElementById("resetChat");
 const modelSelectEl = document.getElementById("modelSelect");
 
-// [ADDED] ExpandableTextbox component instance
+// ExpandableTextbox component instance
 let expandableTextbox = null;
 
 let currentProblem = null;
@@ -50,6 +50,104 @@ resetChatBtn?.addEventListener("click", () => {
   resetConversation({ keepProblem: true });
 });
 
+// Function to format markdown code blocks into styled boxes
+function formatMessageWithCodeBlocks(content) {
+  if (!content || typeof content !== 'string') return content;
+  
+  // Pattern to match markdown code blocks: ```language\ncode\n```
+  const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = codeBlockRegex.exec(content)) !== null) {
+    // Add text before the code block
+    if (match.index > lastIndex) {
+      const textBefore = content.substring(lastIndex, match.index);
+      if (textBefore.trim()) {
+        parts.push({ type: 'text', content: textBefore });
+      }
+    }
+    
+    // Add the code block
+    const language = match[1] || 'text';
+    const code = match[2];
+    parts.push({ type: 'code', language, code });
+    
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text after the last code block
+  if (lastIndex < content.length) {
+    const textAfter = content.substring(lastIndex);
+    if (textAfter.trim()) {
+      parts.push({ type: 'text', content: textAfter });
+    }
+  }
+  
+  // If no code blocks found, return original content as text
+  if (parts.length === 0) {
+    parts.push({ type: 'text', content });
+  }
+  
+  // Create DOM elements
+  const container = document.createDocumentFragment();
+  
+  parts.forEach((part, index) => {
+    if (part.type === 'code') {
+      const codeContainer = document.createElement('div');
+      codeContainer.className = 'code-block-container';
+      
+      const codeHeader = document.createElement('div');
+      codeHeader.className = 'code-block-header';
+      
+      const languageLabel = document.createElement('span');
+      languageLabel.className = 'code-block-language';
+      languageLabel.textContent = part.language;
+      
+      const copyButton = document.createElement('button');
+      copyButton.className = 'code-block-copy';
+      copyButton.textContent = 'Copy';
+      copyButton.setAttribute('aria-label', 'Copy code');
+      copyButton.onclick = () => {
+        navigator.clipboard.writeText(part.code).then(() => {
+          copyButton.textContent = 'Copied!';
+          setTimeout(() => {
+            copyButton.textContent = 'Copy';
+          }, 2000);
+        });
+      };
+      
+      codeHeader.appendChild(languageLabel);
+      codeHeader.appendChild(copyButton);
+      
+      const codeElement = document.createElement('pre');
+      codeElement.className = 'code-block';
+      const codeInner = document.createElement('code');
+      codeInner.textContent = part.code;
+      codeElement.appendChild(codeInner);
+      
+      codeContainer.appendChild(codeHeader);
+      codeContainer.appendChild(codeElement);
+      container.appendChild(codeContainer);
+    } else {
+      // Format text with basic markdown (bold, italic, links)
+      const textDiv = document.createElement('div');
+      textDiv.className = 'message-text';
+      // Convert basic markdown to HTML
+      let html = part.content
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+        .replace(/\n/g, '<br>');
+      textDiv.innerHTML = html;
+      container.appendChild(textDiv);
+    }
+  });
+  
+  return container;
+}
+
 function addMessage(role, content) {
   const msg = document.createElement("div");
   msg.className = "msg";
@@ -66,7 +164,13 @@ function addMessage(role, content) {
   if (content instanceof Node) {
     bubbleEl.appendChild(content);
   } else if (typeof content === "string") {
-    bubbleEl.textContent = content;
+    // Format content with code blocks for assistant messages
+    if (role === "assistant") {
+      const formatted = formatMessageWithCodeBlocks(content);
+      bubbleEl.appendChild(formatted);
+    } else {
+      bubbleEl.textContent = content;
+    }
   } else if (content != null) {
     bubbleEl.textContent = String(content);
   }
@@ -241,11 +345,11 @@ async function sendToModel(messages) {
 
 formEl.addEventListener("submit", async (e) => {
   e.preventDefault();
-  // [MODIFIED] Use expandableTextbox to get value
+  // Use expandableTextbox to get value
   const content = expandableTextbox ? expandableTextbox.getValue().trim() : promptEl.value.trim();
   if (!content) return;
   
-  // [MODIFIED] Clear textbox using expandableTextbox
+  // Clear textbox using expandableTextbox
   if (expandableTextbox) {
     expandableTextbox.setValue("");
   } else {
@@ -279,15 +383,17 @@ formEl.addEventListener("submit", async (e) => {
       context.push({ role: "system", content: `Current editor code${lang}:
 \n\n${codeContext.code.slice(0, 30000)}` });
     }
-     // show typing indicator while waiting for response
+     // Show typing indicator while waiting for response
      const typing = document.createElement("span");
      typing.className = "typing";
      typing.innerHTML = "<span>.</span><span>.</span><span>.</span>";
      const placeholderBubble = addMessage("assistant", typing);
 
      const resp = await sendToModel([system, ...context, { role: "user", content }]);
-     // Replace the typing indicator with the actual response
-     placeholderBubble.innerHTML = resp.content || "(no response)";
+     // Replace the typing indicator with formatted response
+     placeholderBubble.innerHTML = '';
+     const formatted = formatMessageWithCodeBlocks(resp.content || "(no response)");
+     placeholderBubble.appendChild(formatted);
   } catch (err) {
     const lastAssistantBubble = messagesEl.querySelector('.msg:last-child .bubble.assistant');
     const errorMessage = `Error: ${err.message}`;
@@ -337,7 +443,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   }
 });
 
-// [ADDED] Initialize ExpandableTextbox component
+// Initialize ExpandableTextbox component
 function initializeExpandableTextbox() {
   // Remove existing textarea from form
   const existingTextarea = document.getElementById("prompt");
@@ -349,7 +455,7 @@ function initializeExpandableTextbox() {
   expandableTextbox = new ExpandableTextbox({
     minHeight: 40,
     defaultHeight: 80,
-    maxHeightRatio: 0.6, // [FIXED] 60% of viewport height (half to two-thirds range)
+    maxHeightRatio: 0.6, // 60% of viewport height (half to two-thirds range)
     autoExpand: true,
     smoothResize: true,
     preserveFormatting: true,
@@ -505,7 +611,7 @@ async function handleIncomingSelectionToTextBox() {
     console.log("❌ Side panel: No text to populate");
     return;
   }
-  // [MODIFIED] Append to existing text in the text box using expandableTextbox
+  // Append to existing text in the text box using expandableTextbox
   const currentText = expandableTextbox ? expandableTextbox.getValue().trim() : promptEl.value.trim();
   if (currentText) {
     const newText = currentText + "\n\n" + text;
@@ -522,7 +628,7 @@ async function handleIncomingSelectionToTextBox() {
     }
   }
   console.log("✅ Side panel: Text appended to text box");
-  // [MODIFIED] Focus the text box for better UX
+  // Focus the text box for better UX
   if (expandableTextbox) {
     expandableTextbox.focus();
   } else {
