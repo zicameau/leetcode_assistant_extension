@@ -23,7 +23,16 @@
       <main id="messages" class="messages" aria-live="polite"></main>
 
       <form id="chatForm" class="composer">
-        <textarea id="prompt" class="input" rows="2" placeholder="Ask anything about this problem…" required></textarea>
+        <div class="composerLeft">
+          <div class="composerContent">
+            <textarea id="prompt" class="input" rows="2" placeholder="Ask anything about this problem…" required></textarea>
+          </div>
+          <div class="modelSelector">
+            <select id="modelSelect" class="modelDropdown">
+              <option value="">⚡ Select model...</option>
+            </select>
+          </div>
+        </div>
         <button id="sendBtn" class="send" type="submit">Send</button>
       </form>
     </div>
