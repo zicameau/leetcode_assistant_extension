@@ -14,9 +14,34 @@
   </head>
   <body>
     <h1>LeetCode Assistant Settings</h1>
-    <label for="apiKey">OpenAI API key</label>
-    <input id="apiKey" type="password" placeholder="sk-..." />
-    <div class="hint">Stored locally via chrome.storage.local</div>
+    
+    <div style="margin-bottom: 24px;">
+      <label for="selectedModel">Select AI Model</label>
+      <select id="selectedModel" style="width: 440px; max-width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 8px;">
+        <option value="">-- Select a model --</option>
+      </select>
+      <div class="hint">Choose which AI model to use (requires corresponding API key)</div>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      <label for="openaiApiKey">OpenAI API Key</label>
+      <input id="openaiApiKey" type="password" placeholder="sk-..." />
+      <div class="hint">For GPT-4, GPT-4o, GPT-3.5, etc.</div>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      <label for="geminiApiKey">Google Gemini API Key</label>
+      <input id="geminiApiKey" type="password" placeholder="AIza..." />
+      <div class="hint">For Gemini Pro, Gemini Flash, etc.</div>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      <label for="claudeApiKey">Anthropic Claude API Key</label>
+      <input id="claudeApiKey" type="password" placeholder="sk-ant-..." />
+      <div class="hint">For Claude 3.5 Sonnet, Claude 3 Opus, etc.</div>
+    </div>
+
+    <div class="hint" style="margin-bottom: 12px;">All keys are stored locally via chrome.storage.local</div>
     <button id="saveBtn">Save</button>
 
     <script src="options.js"></script>
