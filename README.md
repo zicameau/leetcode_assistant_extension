@@ -54,6 +54,23 @@
 
 ---
 
+## Authentication & Storage Flow
+
+- Lightweight login/signup modal appears as soon as the sidepanel opens; existing chat UI styling is unchanged.
+- Login message: “You must log in to enable the extension’s advanced features (like storing debugging history or searching past code).”
+- After a successful login/sign‑up, if no OpenAI key is present, the extension shows a small prompt to open Settings and add one.
+- Guest mode is treated as authenticated for UI access:
+  - The login modal reliably disappears and stays hidden.
+  - No prompts for keys.
+  - No database writes and no Pinecone/RAG calls (pure local usage).
+- Non‑guest (authenticated) mode:
+  - Messages are stored in the backend database.
+  - Embeddings are generated with OpenAI `text-embedding-3-small` and written to the Pinecone index `sjsunlp` (auto‑created if missing).
+  - RAG endpoints are enabled for semantic search over prior messages.
+- A quick “🔑” header button lets users open the login modal anytime to switch from guest to a logged‑in session.
+
+---
+
 ## Software Product Statement
 
 Our LeetCode extension, available in **8 weeks**, is a browser tool that enhances learning, helping students and coding interview candidates track their LeetCode progress, identify weaknesses, and **offer improvements on their code with minimal intervention**.
