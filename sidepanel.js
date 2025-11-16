@@ -498,6 +498,11 @@ function initializeExpandableTextbox() {
   // Initialize model dropdown
   await updateModelDropdown();
   
+  // [ADDED] Force modal by default unless a valid token exists (do not persist guest across opens)
+  try {
+    await new Promise((resolve) => chrome.storage.local.set({ backendGuest: false }, resolve));
+  } catch (_) {}
+  
   currentProblem = await loadProblemFromStorage();
   setProblemMeta(currentProblem);
   await updateTabState();
