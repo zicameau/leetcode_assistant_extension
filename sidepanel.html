@@ -17,6 +17,8 @@
         <div class="headerActions">
           <button id="resetChat" class="resetBtn" title="Reset chat">↩️</button>
           <button id="openOptions" class="optionsBtn" title="API key & settings">⚙️</button>
+          <!-- [ADDED] Quick login/account button to switch from guest to login -->
+          <button id="openAuth" class="optionsBtn" title="Login / account">🔑</button>
         </div>
       </header>
 
@@ -35,9 +37,37 @@
         </div>
         <button id="sendBtn" class="send" type="submit">Send</button>
       </form>
+
+      <!-- [ADDED] Auth modal shown on first use if not authenticated -->
+      <div id="authModal" class="authModal" role="dialog" aria-modal="true" aria-labelledby="authTitle" aria-describedby="authDesc" hidden>
+        <div class="authDialog">
+          <h2 id="authTitle" class="authTitle">Sign in to continue</h2>
+          <p id="authDesc" class="authDesc">You must log in to enable the extension’s advanced features (like storing debugging history or searching past code).</p>
+          <div class="authFormRow">
+            <label for="authUsername" class="authLabel">Username</label>
+            <input id="authUsername" class="authInput" type="text" autocomplete="username" placeholder="username" />
+          </div>
+          <div class="authFormRow">
+            <label for="authEmail" class="authLabel">Email (for signup)</label>
+            <input id="authEmail" class="authInput" type="email" autocomplete="email" placeholder="you@example.com" />
+          </div>
+          <div class="authFormRow">
+            <label for="authPassword" class="authLabel">Password</label>
+            <input id="authPassword" class="authInput" type="password" autocomplete="current-password" placeholder="••••••••" />
+          </div>
+          <div class="authActions">
+            <button id="authLoginBtn" type="button" class="authBtn">Login</button>
+            <button id="authSignupBtn" type="button" class="authBtn secondary">Sign up</button>
+            <button id="authGuestBtn" type="button" class="authBtn secondary">Continue as guest</button>
+          </div>
+          <div id="authStatus" class="authStatus" role="status" aria-live="polite"></div>
+        </div>
+      </div>
     </div>
 
     <script src="ExpandableTextbox.js"></script>
+    <!-- [ADDED] Backend integration helpers for optional storage/RAG when authenticated -->
+    <script src="backend-integration.js"></script>
     <script src="sidepanel.js" type="module"></script>
   </body>
   </html>

@@ -7,6 +7,125 @@ const openOptionsBtn = document.getElementById("openOptions");
 const resetChatBtn = document.getElementById("resetChat");
 const modelSelectEl = document.getElementById("modelSelect");
 
+// [ADDED] Auth modal elements
+const authModal = document.getElementById("authModal");
+const authUsernameEl = document.getElementById("authUsername");
+const authEmailEl = document.getElementById("authEmail");
+const authPasswordEl = document.getElementById("authPassword");
+const authLoginBtn = document.getElementById("authLoginBtn");
+const authSignupBtn = document.getElementById("authSignupBtn");
+const authGuestBtn = document.getElementById("authGuestBtn");
+const authStatusEl = document.getElementById("authStatus");
+const openAuthBtn = document.getElementById("openAuth");
+
+// [ADDED] Modal helpers
+function setAuthModalVisible(visible) {
+  if (!authModal) return;
+  authModal.hidden = !visible;
+  if (sendBtn) sendBtn.disabled = visible;
+  if (promptEl) promptEl.disabled = visible;
+  if (visible && authUsernameEl) authUsernameEl.focus();
+}
+
+async function verifyBackend() {
+  try {
+    const data = await new Promise((resolve) => {
+      chrome.storage.local.get(["backendGuest","backendApiToken"], (res) => resolve(res));
+    });
+    if (data.backendGuest === true || data.backendGuest === 'true') return true;
+    const token = data.backendApiToken || null;
+    if (!token) return false;
+    const resp = await fetch('http://localhost:5000/api/auth/verify', {
+      method: 'GET', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, credentials: 'include'
+    });
+    const json = await resp.json();
+    return !!json?.authenticated;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function checkKeysAndPrompt() {
+  try {
+    const { openaiApiKey } = await new Promise((resolve) => {
+      chrome.storage.local.get(["openaiApiKey"], (res) => resolve(res));
+    });
+    if (!openaiApiKey) {
+      const shouldOpen = confirm("You’re almost set. Add your OpenAI API key in Settings now?");
+      if (shouldOpen && chrome.runtime?.openOptionsPage) chrome.runtime.openOptionsPage();
+    }
+  } catch (_) {}
+}
+
+// [ADDED] Login/Signup/Guest handlers
+if (authLoginBtn) authLoginBtn.addEventListener('click', async () => {
+  if (!authUsernameEl || !authPasswordEl) return;
+  const username = authUsernameEl.value.trim();
+  const password = authPasswordEl.value.trim();
+  if (!username || !password) { if (authStatusEl) authStatusEl.textContent = 'Enter username and password.'; return; }
+  authLoginBtn.disabled = true; if (authSignupBtn) authSignupBtn.disabled = true;
+  if (authStatusEl) authStatusEl.textContent = 'Signing in...';
+  try {
+    const resp = await fetch('http://localhost:5000/api/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ username, password }) });
+    const data = await resp.json();
+    if (!resp.ok || !data?.success) throw new Error(data?.error || 'Login failed');
+    if (data.user?.api_token) {
+      await new Promise((resolve)=>chrome.storage.local.set({ backendApiToken: data.user.api_token, backendUserId: data.user.id, backendUsername: data.user.username, backendGuest: false }, resolve));
+    }
+    if (authStatusEl) authStatusEl.textContent = 'Signed in.';
+    setAuthModalVisible(false);
+    await checkKeysAndPrompt();
+  } catch (err) {
+    if (authStatusEl) authStatusEl.textContent = `Login error: ${err.message}`;
+  } finally {
+    authLoginBtn.disabled = false; if (authSignupBtn) authSignupBtn.disabled = false;
+  }
+});
+
+if (authSignupBtn) authSignupBtn.addEventListener('click', async () => {
+  if (!authUsernameEl || !authEmailEl || !authPasswordEl) return;
+  const username = authUsernameEl.value.trim();
+  const email = authEmailEl.value.trim();
+  const password = authPasswordEl.value.trim();
+  if (!username || !email || !password) { if (authStatusEl) authStatusEl.textContent = 'Enter username, email, and password.'; return; }
+  authSignupBtn.disabled = true; if (authLoginBtn) authLoginBtn.disabled = true;
+  if (authStatusEl) authStatusEl.textContent = 'Creating account...';
+  try {
+    const resp = await fetch('http://localhost:5000/api/auth/register', { method: 'POST', headers: {'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({ username, email, password }) });
+    const data = await resp.json();
+    if (!resp.ok || !data?.success) throw new Error(data?.error || 'Registration failed');
+    if (data.user?.api_token) {
+      await new Promise((resolve)=>chrome.storage.local.set({ backendApiToken: data.user.api_token, backendUserId: data.user.id, backendUsername: data.user.username, backendGuest: false }, resolve));
+    }
+    if (authStatusEl) authStatusEl.textContent = 'Account created. Signed in.';
+    setAuthModalVisible(false);
+    await checkKeysAndPrompt();
+  } catch (err) {
+    if (authStatusEl) authStatusEl.textContent = `Signup error: ${err.message}`;
+  } finally {
+    authSignupBtn.disabled = false; if (authLoginBtn) authLoginBtn.disabled = false;
+  }
+});
+
+if (authGuestBtn) authGuestBtn.addEventListener('click', async () => {
+  await new Promise((resolve)=>chrome.storage.local.set({ backendGuest: true, backendApiToken: null, backendUserId: null }, resolve));
+  if (authStatusEl) authStatusEl.textContent = 'Continuing as guest.';
+  setAuthModalVisible(false);
+});
+
+if (openAuthBtn) openAuthBtn.addEventListener('click', async () => {
+  await new Promise((resolve)=>chrome.storage.local.set({ backendGuest: false }, resolve));
+  setAuthModalVisible(true);
+});
+
+// [ADDED] Hide modal if guest or when key saved in guest mode
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
+  if (changes.backendGuest && (changes.backendGuest.newValue === true || changes.backendGuest.newValue === 'true')) {
+    setAuthModalVisible(false);
+  }
+});
+
 // ExpandableTextbox component instance
 let expandableTextbox = null;
 
@@ -506,6 +625,14 @@ function initializeExpandableTextbox() {
   currentProblem = await loadProblemFromStorage();
   setProblemMeta(currentProblem);
   await updateTabState();
+  
+  // [ADDED] Explicit auth check on panel open to toggle modal
+  try {
+    const authed = await verifyBackend();
+    setAuthModalVisible(!authed);
+  } catch (_) {
+    setAuthModalVisible(true);
+  }
   
   // Handle incoming messages for text box population
   chrome.runtime.onMessage.addListener((message) => {

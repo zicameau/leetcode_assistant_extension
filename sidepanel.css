@@ -326,4 +326,19 @@ body {
   margin-top: 12px;
 }
 
+/* [ADDED] Auth modal styles (scoped, won't affect main layout) */
+.authModal { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.authModal[hidden] { display: none !important; }
+.authDialog { width: 100%; max-width: 420px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+.authTitle { margin: 0 0 6px 0; font-size: 18px; }
+.authDesc { margin: 0 0 12px 0; color: var(--muted); font-size: 13px; }
+.authFormRow { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.authLabel { font-size: 13px; color: var(--muted); }
+.authInput { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: #0e1526; color: var(--text); }
+.authActions { display: flex; gap: 8px; margin-top: 4px; }
+.authBtn { background: var(--accent); color: #111; border: none; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.authBtn.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.authBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.authStatus { color: var(--muted); font-size: 12px; margin-top: 8px; min-height: 16px; }
+
 
