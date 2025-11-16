@@ -49,6 +49,8 @@
 - ✅ **Multi-provider support**: OpenAI (GPT-4o, GPT-4, etc.), Google Gemini (1.5 Pro, 2.0 Flash, etc.), and Anthropic Claude (3.5 Sonnet, Opus, etc.)  
 - ✅ **Automatic model detection**: Extension tests your API keys and only shows models you have access to
 - ✅ **Smart model selection**: Dropdown automatically updates based on your account tier  
+- ✅ **Guest mode**: use the extension without login; no DB/Pinecone writes  
+- ✅ **Pinecone via backend**: keys live in server `.env`; users only add an OpenAI key in the extension  
 
 ---
 

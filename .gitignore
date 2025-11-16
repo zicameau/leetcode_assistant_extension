@@ -1,3 +1,21 @@
+# [ADDED] Ignore environment files
+.env
+.env.*
+!.env.example
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Virtualenvs
+.venv/
+venv/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
 venv/
 .venv/
 
