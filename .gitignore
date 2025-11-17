@@ -16,6 +16,10 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Ignore instance folder
+instance/
+.instance
+
 venv/
 .venv/
 
