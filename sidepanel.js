@@ -6,12 +6,23 @@ const problemMetaEl = document.getElementById("problemMeta");
 const openOptionsBtn = document.getElementById("openOptions");
 const resetChatBtn = document.getElementById("resetChat");
 const modelSelectEl = document.getElementById("modelSelect");
+// Auth UI elements
+const authSignedOutEl = document.getElementById("authSignedOut");
+const authSignedInEl = document.getElementById("authSignedIn");
+const authEmailInput = document.getElementById("authEmail");
+const authPasswordInput = document.getElementById("authPassword");
+const authSignInBtn = document.getElementById("authSignIn");
+const authRegisterBtn = document.getElementById("authRegister");
+const authSignOutBtn = document.getElementById("authSignOut");
+const authUserEmailEl = document.getElementById("authUserEmail");
 
 // ExpandableTextbox component instance
 let expandableTextbox = null;
 
 let currentProblem = null;
 let selectionBuffer = null;
+let currentChatId = null;
+const MAX_HISTORY_MESSAGES = 20;
 
 // Model labels
 const MODEL_LABELS = {
@@ -219,6 +230,7 @@ function resetConversation(options = {}) {
   const keepProblem = options.keepProblem === true;
   messagesEl.innerHTML = "";
   selectionBuffer = null;
+  currentChatId = null;
   try { chrome.storage?.local?.remove?.(["leetcodeLastSelection"]); } catch (_) {}
   if (!keepProblem) {
     currentProblem = null;
@@ -236,6 +248,98 @@ async function loadProblemFromStorage() {
 
 async function saveConversationContext(ctx) {
   chrome.storage.local.set({ leetcodeConversationContext: ctx });
+}
+
+function getProblemKeyFromCurrentProblem() {
+  if (currentProblem?.slug) return `leetcode:${currentProblem.slug}`;
+  return 'general';
+}
+
+async function loadChatIdForProblem(problemKey) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['chatIdByProblem'], (res) => {
+      const map = res.chatIdByProblem || {};
+      resolve(map[problemKey] || null);
+    });
+  });
+}
+
+async function saveChatIdForProblem(problemKey, chatId) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['chatIdByProblem'], (res) => {
+      const map = res.chatIdByProblem || {};
+      map[problemKey] = chatId;
+      chrome.storage.local.set({ chatIdByProblem: map }, () => resolve());
+    });
+  });
+}
+
+async function getOrCreateCurrentChatId(selectedModel) {
+  if (!window.firebaseClient?.auth?.currentUser) return null; // not signed in → no persistence
+  if (currentChatId) return currentChatId;
+  const problemKey = getProblemKeyFromCurrentProblem();
+  const existing = await loadChatIdForProblem(problemKey);
+  if (existing) {
+    currentChatId = existing;
+    return currentChatId;
+  }
+  // Create new chat
+  if (!window.chatApi?.createChat) return null;
+  const title = currentProblem?.slug ? currentProblem.slug.replace(/-/g, ' ') : 'General Chat';
+  const problemUrl = currentProblem?.url || null;
+  const resp = await window.chatApi.createChat({
+    title,
+    problemKey,
+    problemUrl,
+    model: selectedModel || null
+  });
+  currentChatId = resp.chatId;
+  await saveChatIdForProblem(problemKey, currentChatId);
+  return currentChatId;
+}
+
+async function loadAndRenderHistoryForCurrentProblem() {
+  try {
+    if (!window.firebaseClient?.auth?.currentUser) return;
+    const problemKey = getProblemKeyFromCurrentProblem();
+    const existing = await loadChatIdForProblem(problemKey);
+    if (!existing) return;
+    currentChatId = existing;
+    if (!window.chatApi?.listMessages) return;
+    const msgs = await window.chatApi.listMessages(currentChatId);
+    if (!Array.isArray(msgs) || msgs.length === 0) return;
+    messagesEl.innerHTML = "";
+    msgs.forEach((m) => {
+      const role = m.role === 'assistant' ? 'assistant' : (m.role === 'system' ? 'assistant' : 'user');
+      addMessage(role, m.content || "");
+    });
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  } catch (e) {
+    console.error('[History] Failed to load chat history:', e);
+  }
+}
+
+async function buildHistoryMessagesForCurrentChat() {
+  if (!currentChatId || !window.chatApi?.listMessages) return [];
+  const msgs = await window.chatApi.listMessages(currentChatId, { max: 500 });
+  if (!Array.isArray(msgs) || msgs.length === 0) return [];
+  const mapped = msgs
+    .filter(m => typeof m?.content === 'string' && m?.role)
+    .map(m => ({ role: m.role, content: m.content }));
+  if (mapped.length <= MAX_HISTORY_MESSAGES) return mapped;
+  return mapped.slice(mapped.length - MAX_HISTORY_MESSAGES);
+}
+
+function setAuthUi(user) {
+  if (user) {
+    if (authSignedOutEl) authSignedOutEl.style.display = 'none';
+    if (authSignedInEl) authSignedInEl.style.display = '';
+    if (authUserEmailEl) authUserEmailEl.textContent = user.email || '';
+  } else {
+    if (authSignedOutEl) authSignedOutEl.style.display = '';
+    if (authSignedInEl) authSignedInEl.style.display = 'none';
+    if (authUserEmailEl) authUserEmailEl.textContent = '';
+  }
 }
 
 async function getSelectedModel() {
@@ -359,6 +463,20 @@ formEl.addEventListener("submit", async (e) => {
   addMessage("user", content);
   sendBtn.disabled = true;
   try {
+    // Ensure chat exists for current problem (if signed in)
+    const selectedModel = await getSelectedModel();
+    const chatId = await getOrCreateCurrentChatId(selectedModel);
+    if (chatId && window.chatApi?.addMessageToChat) {
+      // Persist the user message before sending to model
+      await window.chatApi.addMessageToChat({ chatId, role: 'user', content });
+    }
+
+    // Load prior chat history to include in prompt
+    let priorHistory = [];
+    try {
+      priorHistory = await buildHistoryMessagesForCurrentChat();
+    } catch (_) {}
+
     // Try to capture current editor code from the active tab (best-effort)
     let codeContext = null;
     try {
@@ -389,11 +507,18 @@ formEl.addEventListener("submit", async (e) => {
      typing.innerHTML = "<span>.</span><span>.</span><span>.</span>";
      const placeholderBubble = addMessage("assistant", typing);
 
-     const resp = await sendToModel([system, ...context, { role: "user", content }]);
+    const resp = await sendToModel([system, ...context, ...priorHistory, { role: "user", content }]);
      // Replace the typing indicator with formatted response
      placeholderBubble.innerHTML = '';
      const formatted = formatMessageWithCodeBlocks(resp.content || "(no response)");
      placeholderBubble.appendChild(formatted);
+     // Persist assistant response
+     if (chatId && window.chatApi?.addMessageToChat) {
+       const assistantText = typeof resp?.content === 'string' ? resp.content : String(resp?.content || '');
+       if (assistantText) {
+         await window.chatApi.addMessageToChat({ chatId, role: 'assistant', content: assistantText });
+       }
+     }
   } catch (err) {
     const lastAssistantBubble = messagesEl.querySelector('.msg:last-child .bubble.assistant');
     const errorMessage = `Error: ${err.message}`;
@@ -498,9 +623,113 @@ function initializeExpandableTextbox() {
   // Initialize model dropdown
   await updateModelDropdown();
   
+  // Initialize Firebase Auth (guarded; requires firebaseBundle.js to be built/loaded)
+  try {
+    if (window.firebaseClient) {
+      const {
+        initAuthPersistence,
+        enableOfflinePersistenceSafe,
+        onAuthChanged,
+        signInWithEmailPassword,
+        registerWithEmailPassword,
+        signOutUser
+      } = window.firebaseClient;
+      
+      await initAuthPersistence();
+      await enableOfflinePersistenceSafe();
+      
+      onAuthChanged((user) => {
+        if (user) {
+          console.log('[Auth] Signed in:', { uid: user.uid, email: user.email });
+          // Ensure user profile document exists and is updated
+          window.firebaseClient.ensureUserProfile().catch((e) => {
+            console.error('[Auth] ensureUserProfile failed:', e);
+          });
+          setAuthUi(user);
+          // After sign-in, try to load existing history for the current problem
+          void loadAndRenderHistoryForCurrentProblem();
+        } else {
+          console.log('[Auth] Signed out');
+          setAuthUi(null);
+        }
+      });
+      
+      // Temporary helpers for quick manual testing in the console
+      window.authApi = {
+        signInWithEmailPassword,
+        registerWithEmailPassword,
+        signOutUser
+      };
+      console.log('🧩 Auth helpers available: window.authApi');
+
+      // Expose basic chat Firestore helpers for manual testing
+      const {
+        createChat,
+        addMessageToChat,
+        listChats,
+        listMessages
+      } = window.firebaseClient;
+      window.chatApi = {
+        createChat,
+        addMessageToChat,
+        listChats,
+        listMessages
+      };
+      console.log('🧩 Chat helpers available: window.chatApi');
+
+      // Wire UI buttons
+      authSignInBtn?.addEventListener('click', async () => {
+        const email = (authEmailInput?.value || '').trim();
+        const password = (authPasswordInput?.value || '').trim();
+        if (!email || !password) return;
+        authSignInBtn.disabled = true;
+        authRegisterBtn && (authRegisterBtn.disabled = true);
+        try {
+          await window.authApi.signInWithEmailPassword(email, password);
+          if (authPasswordInput) authPasswordInput.value = '';
+        } catch (e) {
+          addMessage('assistant', `Sign in failed: ${e?.message || e}`);
+        } finally {
+          authSignInBtn.disabled = false;
+          authRegisterBtn && (authRegisterBtn.disabled = false);
+        }
+      });
+
+      authRegisterBtn?.addEventListener('click', async () => {
+        const email = (authEmailInput?.value || '').trim();
+        const password = (authPasswordInput?.value || '').trim();
+        if (!email || !password) return;
+        authSignInBtn && (authSignInBtn.disabled = true);
+        authRegisterBtn.disabled = true;
+        try {
+          await window.authApi.registerWithEmailPassword(email, password);
+          if (authPasswordInput) authPasswordInput.value = '';
+        } catch (e) {
+          addMessage('assistant', `Registration failed: ${e?.message || e}`);
+        } finally {
+          authSignInBtn && (authSignInBtn.disabled = false);
+          authRegisterBtn.disabled = false;
+        }
+      });
+
+      authSignOutBtn?.addEventListener('click', async () => {
+        try {
+          await window.authApi.signOutUser();
+        } catch (e) {
+          addMessage('assistant', `Sign out failed: ${e?.message || e}`);
+        }
+      });
+    } else {
+      console.warn('[Auth] firebaseBundle.js not loaded yet; skip auth init');
+    }
+  } catch (e) {
+    console.error('[Auth] Initialization error:', e);
+  }
+  
   currentProblem = await loadProblemFromStorage();
   setProblemMeta(currentProblem);
   await updateTabState();
+  await loadAndRenderHistoryForCurrentProblem();
   
   // Handle incoming messages for text box population
   chrome.runtime.onMessage.addListener((message) => {
@@ -568,6 +797,8 @@ function initializeExpandableTextbox() {
         setProblemMeta(currentProblem);
         // Auto reset chat on problem change
         resetConversation({ keepProblem: true });
+        // Try to load existing history for this problem
+        void loadAndRenderHistoryForCurrentProblem();
       }
     }
   });

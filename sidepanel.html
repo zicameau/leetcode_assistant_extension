@@ -20,6 +20,19 @@
         </div>
       </header>
 
+      <section id="auth" class="auth">
+        <div id="authSignedOut" class="authSignedOut">
+          <input id="authEmail" type="email" placeholder="Email" autocomplete="email" />
+          <input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" />
+          <button id="authSignIn" type="button" title="Sign in">Sign in</button>
+          <button id="authRegister" type="button" title="Create account">Register</button>
+        </div>
+        <div id="authSignedIn" class="authSignedIn" style="display:none">
+          <span id="authUserEmail"></span>
+          <button id="authSignOut" type="button" title="Sign out">Sign out</button>
+        </div>
+      </section>
+
       <main id="messages" class="messages" aria-live="polite"></main>
 
       <form id="chatForm" class="composer">
@@ -37,6 +50,7 @@
       </form>
     </div>
 
+    <script src="firebaseBundle.js"></script>
     <script src="ExpandableTextbox.js"></script>
     <script src="sidepanel.js" type="module"></script>
   </body>
