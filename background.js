@@ -45,6 +45,20 @@ async function updateActiveLeetCodeTabs() {
       leetCodeTabCount: leetCodeTabIds.size
     });
     
+    // Close sidepanel if user switches to a non-LeetCode tab
+    if (!isOnLeetCodeTab && currentActiveTab && isSidePanelAvailable()) {
+      try {
+        const activeTabId = currentActiveTab.id;
+        if (sidePanelOpen.has(activeTabId)) {
+          console.log('Closing sidepanel - user switched to non-LeetCode tab');
+          await chrome.sidePanel.close({ tabId: activeTabId });
+          sidePanelOpen.delete(activeTabId);
+        }
+      } catch (error) {
+        console.error('Error closing sidepanel on tab switch:', error);
+      }
+    }
+    
     if (!hasLeetCodeTabs) {
       // No LeetCode tabs at all - clear everything
       console.log('No LeetCode tabs active, clearing problem from storage');

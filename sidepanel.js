@@ -1,3 +1,10 @@
+// IMMEDIATE LOG - Verify script is loading
+console.log('🔵 [SCRIPT LOAD] sidepanel.js is loading...');
+if (typeof window !== 'undefined') {
+  window._sidepanelLoaded = true;
+  console.log('🔵 [SCRIPT LOAD] window object available');
+}
+
 const messagesEl = document.getElementById("messages");
 const formEl = document.getElementById("chatForm");
 const promptEl = document.getElementById("prompt");
@@ -6,6 +13,8 @@ const problemMetaEl = document.getElementById("problemMeta");
 const openOptionsBtn = document.getElementById("openOptions");
 const resetChatBtn = document.getElementById("resetChat");
 const modelSelectEl = document.getElementById("modelSelect");
+
+console.log('🔵 [SCRIPT LOAD] DOM elements queried');
 // Auth UI elements
 const authSignedOutEl = document.getElementById("authSignedOut");
 const authSignedInEl = document.getElementById("authSignedIn");
@@ -15,6 +24,24 @@ const authSignInBtn = document.getElementById("authSignIn");
 const authRegisterBtn = document.getElementById("authRegister");
 const authSignOutBtn = document.getElementById("authSignOut");
 const authUserEmailEl = document.getElementById("authUserEmail");
+const emailVerificationStatusEl = document.getElementById("emailVerificationStatus");
+const verificationStatusTextEl = document.getElementById("verificationStatusText");
+const resendVerificationBtn = document.getElementById("resendVerificationBtn");
+const checkVerificationBtn = document.getElementById("checkVerificationBtn");
+
+// Log button element status
+console.log('[Auth] Sign out button element:', authSignOutBtn);
+if (!authSignOutBtn) {
+  console.error('[Auth] ❌ Sign out button element not found!');
+} else {
+  console.log('[Auth] ✅ Sign out button element found:', {
+    id: authSignOutBtn.id,
+    type: authSignOutBtn.type,
+    disabled: authSignOutBtn.disabled,
+    style: authSignOutBtn.style.display,
+    visible: authSignOutBtn.offsetParent !== null
+  });
+}
 
 // ExpandableTextbox component instance
 let expandableTextbox = null;
@@ -23,6 +50,7 @@ let currentProblem = null;
 let selectionBuffer = null;
 let currentChatId = null;
 const MAX_HISTORY_MESSAGES = 20;
+let verificationMessageShown = false; // Track if we've shown verification success message
 
 // Model labels
 const MODEL_LABELS = {
@@ -330,15 +358,119 @@ async function buildHistoryMessagesForCurrentChat() {
   return mapped.slice(mapped.length - MAX_HISTORY_MESSAGES);
 }
 
-function setAuthUi(user) {
+async function setAuthUi(user) {
+  console.log('[Auth] setAuthUi called with user:', user ? { uid: user.uid, email: user.email } : null);
+  
   if (user) {
+    console.log('[Auth] Setting UI for signed-in user');
     if (authSignedOutEl) authSignedOutEl.style.display = 'none';
     if (authSignedInEl) authSignedInEl.style.display = '';
     if (authUserEmailEl) authUserEmailEl.textContent = user.email || '';
+    
+    // Log sign out button visibility
+    if (authSignOutBtn) {
+      console.log('[Auth] Sign out button should be visible:', {
+        parentDisplay: authSignedInEl?.style.display,
+        buttonDisplay: authSignOutBtn.style.display,
+        buttonVisible: authSignOutBtn.offsetParent !== null,
+        buttonDisabled: authSignOutBtn.disabled
+      });
+    }
+    
+    // Reset verification message flag if user changes
+    const currentUserId = user.uid;
+    if (window.lastVerifiedUserId !== currentUserId) {
+      verificationMessageShown = false;
+      window.lastVerifiedUserId = currentUserId;
+    }
+    
+    // Update email verification status
+    await updateEmailVerificationStatus(user);
   } else {
+    console.log('[Auth] Setting UI for signed-out user');
     if (authSignedOutEl) authSignedOutEl.style.display = '';
     if (authSignedInEl) authSignedInEl.style.display = 'none';
     if (authUserEmailEl) authUserEmailEl.textContent = '';
+    if (emailVerificationStatusEl) emailVerificationStatusEl.style.display = 'none';
+    
+    // Log sign out button visibility
+    if (authSignOutBtn) {
+      console.log('[Auth] Sign out button should be hidden:', {
+        parentDisplay: authSignedInEl?.style.display,
+        buttonDisplay: authSignOutBtn.style.display
+      });
+    }
+    
+    // Stop periodic checking when user signs out
+    if (window.verificationCheckInterval) {
+      clearInterval(window.verificationCheckInterval);
+      window.verificationCheckInterval = null;
+      console.log('[Email Verification] Stopped periodic verification checking');
+    }
+    // Reset verification message flag
+    verificationMessageShown = false;
+    window.lastVerifiedUserId = null;
+  }
+}
+
+async function updateEmailVerificationStatus(user, skipReload = false) {
+  console.log('[Email Verification] updateEmailVerificationStatus called for user:', { 
+    uid: user?.uid, 
+    email: user?.email, 
+    emailVerified: user?.emailVerified 
+  }, 'skipReload:', skipReload);
+  
+  if (!emailVerificationStatusEl || !verificationStatusTextEl) {
+    console.warn('[Email Verification] ⚠️ UI elements not found');
+    return;
+  }
+  
+  try {
+    // Check verification status (only reload if not skipping and not in token change)
+    if (window.firebaseClient?.checkEmailVerified && !skipReload && !window._isProcessingTokenChange) {
+      console.log('[Email Verification] checkEmailVerified function available, calling...');
+      const isVerified = await window.firebaseClient.checkEmailVerified(false); // Don't force reload
+      console.log('[Email Verification] Verification status result:', isVerified);
+      user.emailVerified = isVerified;
+    } else {
+      if (skipReload) {
+        console.log('[Email Verification] Skipping reload, using user.emailVerified directly:', user.emailVerified);
+      } else {
+        console.warn('[Email Verification] ⚠️ checkEmailVerified function not available or token change in progress');
+        console.log('[Email Verification] Using user.emailVerified directly:', user.emailVerified);
+      }
+    }
+    
+    if (user.emailVerified) {
+      console.log('[Email Verification] ✅ Email is verified, showing verified UI');
+      emailVerificationStatusEl.style.display = 'flex';
+      emailVerificationStatusEl.className = 'emailVerificationStatus verified';
+      verificationStatusTextEl.textContent = '✓ Email verified';
+      verificationStatusTextEl.className = 'verificationStatusText verified';
+      if (resendVerificationBtn) resendVerificationBtn.style.display = 'none';
+      if (checkVerificationBtn) checkVerificationBtn.style.display = 'none';
+    } else {
+      console.log('[Email Verification] ⚠️ Email is not verified, showing unverified UI');
+      emailVerificationStatusEl.style.display = 'flex';
+      emailVerificationStatusEl.className = 'emailVerificationStatus';
+      verificationStatusTextEl.textContent = '⚠ Email not verified. Check your inbox.';
+      verificationStatusTextEl.className = 'verificationStatusText unverified';
+      if (resendVerificationBtn) resendVerificationBtn.style.display = 'block';
+      if (checkVerificationBtn) checkVerificationBtn.style.display = 'block';
+    }
+  } catch (error) {
+    console.error('[Email Verification] ❌ Error checking email verification:', error);
+    console.error('[Email Verification] Error details:', {
+      code: error?.code,
+      message: error?.message,
+      stack: error?.stack
+    });
+    // Default to showing unverified if we can't check
+    emailVerificationStatusEl.style.display = 'flex';
+    emailVerificationStatusEl.className = 'emailVerificationStatus';
+    verificationStatusTextEl.textContent = '⚠ Email verification status unknown';
+    verificationStatusTextEl.className = 'verificationStatusText unverified';
+    if (resendVerificationBtn) resendVerificationBtn.style.display = 'block';
   }
 }
 
@@ -615,6 +747,338 @@ function initializeExpandableTextbox() {
   };
 }
 
+// Set up sign in button handler (always available, not dependent on Firebase loading)
+if (authSignInBtn) {
+  console.log('[Auth] Setting up sign in button event listener...');
+  
+  authSignInBtn.addEventListener('click', async (e) => {
+    console.log('[Auth] ========== SIGN IN BUTTON CLICKED ==========');
+    console.log('[Auth] Event:', e);
+    console.log('[Auth] Button element:', authSignInBtn);
+    console.log('[Auth] Button disabled?', authSignInBtn.disabled);
+    
+    // Prevent default if needed
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const email = (authEmailInput?.value || '').trim();
+    const password = (authPasswordInput?.value || '').trim();
+    
+    console.log('[Auth] Email provided:', email ? 'Yes' : 'No');
+    console.log('[Auth] Password provided:', password ? 'Yes' : 'No');
+    
+    if (!email || !password) {
+      console.warn('[Auth] ⚠️ Sign in skipped: empty email or password');
+      addMessage('assistant', 'Please enter both email and password.');
+      return;
+    }
+    
+    authSignInBtn.disabled = true;
+    authRegisterBtn && (authRegisterBtn.disabled = true);
+    const originalSignInText = authSignInBtn.textContent;
+    authSignInBtn.textContent = 'Signing in...';
+    
+    try {
+      console.log('[Auth] Checking for sign in function...');
+      console.log('[Auth] window.authApi:', window.authApi);
+      console.log('[Auth] window.authApi?.signInWithEmailPassword:', window.authApi?.signInWithEmailPassword);
+      console.log('[Auth] window.firebaseClient:', window.firebaseClient);
+      console.log('[Auth] window.firebaseClient?.signInWithEmailPassword:', window.firebaseClient?.signInWithEmailPassword);
+      
+      // Try to set up window.authApi if it doesn't exist but firebaseClient is available
+      if (!window.authApi && window.firebaseClient) {
+        console.log('[Auth] window.authApi not set up, creating it from firebaseClient...');
+        const { signInWithEmailPassword: firebaseSignIn, registerWithEmailPassword: firebaseRegister, signOutUser: firebaseSignOut } = window.firebaseClient;
+        if (firebaseSignIn) {
+          window.authApi = {
+            signInWithEmailPassword: firebaseSignIn,
+            registerWithEmailPassword: firebaseRegister,
+            signOutUser: firebaseSignOut,
+            sendVerificationEmail: window.firebaseClient?.sendVerificationEmail,
+            checkEmailVerified: window.firebaseClient?.checkEmailVerified
+          };
+          console.log('[Auth] ✅ window.authApi created from firebaseClient');
+        }
+      }
+      
+      // Try window.authApi first, then fallback to window.firebaseClient
+      let signInFn = window.authApi?.signInWithEmailPassword || window.firebaseClient?.signInWithEmailPassword;
+      
+      if (!signInFn) {
+        console.error('[Auth] ❌ signInWithEmailPassword function not available');
+        console.error('[Auth] window.authApi exists?', !!window.authApi);
+        console.error('[Auth] window.firebaseClient exists?', !!window.firebaseClient);
+        console.error('[Auth] Available in window.authApi:', Object.keys(window.authApi || {}));
+        console.error('[Auth] Available in window.firebaseClient:', Object.keys(window.firebaseClient || {}));
+        addMessage('assistant', 'Sign in failed: Authentication service not available. Please refresh the page.');
+        return;
+      }
+      
+      console.log('[Auth] ✅ Sign in function found:', signInFn);
+      
+      console.log('[Email Verification] Sign in attempt for:', email);
+      console.log('[Auth] Calling signInWithEmailPassword with function:', signInFn);
+      console.log('[Auth] Function type:', typeof signInFn);
+      
+      // Add timeout to prevent hanging
+      console.log('[Auth] Starting sign in promise...');
+      const signInPromise = signInFn(email, password);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Sign in timed out after 10 seconds')), 10000)
+      );
+      
+      console.log('[Auth] Waiting for sign in to complete...');
+      let userCredential;
+      try {
+        userCredential = await Promise.race([signInPromise, timeoutPromise]);
+        console.log('[Auth] ✅ Sign in promise resolved');
+      } catch (promiseError) {
+        console.error('[Auth] ❌ Sign in promise error:', promiseError);
+        throw promiseError;
+      }
+      
+      console.log('[Email Verification] Sign in successful:', { 
+        uid: userCredential?.user?.uid, 
+        email: userCredential?.user?.email,
+        emailVerified: userCredential?.user?.emailVerified
+      });
+      console.log('[Auth] ✅ Sign in function returned successfully');
+      
+      // Immediately reset button state (before UI might update via auth state change)
+      if (authSignInBtn) {
+        authSignInBtn.disabled = false;
+        authSignInBtn.textContent = originalSignInText;
+        console.log('[Auth] Sign in button state reset immediately after success');
+      }
+      if (authRegisterBtn) {
+        authRegisterBtn.disabled = false;
+      }
+      
+      // Immediately check Firebase auth state
+      console.log('[Auth] Checking Firebase auth state immediately after sign in...');
+      const immediateUser = window.firebaseClient?.auth?.currentUser;
+      console.log('[Auth] Immediate current user:', immediateUser ? { uid: immediateUser.uid, email: immediateUser.email } : 'null');
+      
+      if (authPasswordInput) authPasswordInput.value = '';
+      
+      // Check and notify about verification status
+      if (userCredential?.user && !userCredential.user.emailVerified) {
+        console.log('[Email Verification] ⚠️ User signed in but email not verified');
+        addMessage('assistant', '⚠️ Your email is not verified. Please check your inbox for the verification email, or click "Resend" to send a new one.');
+      } else {
+        console.log('[Email Verification] ✅ User signed in and email is verified');
+      }
+      
+      // Wait for auth state change with multiple checks
+      console.log('[Auth] Waiting for auth state change to process...');
+      for (let i = 0; i < 10; i++) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const currentUser = window.firebaseClient?.auth?.currentUser;
+        console.log(`[Auth] Check ${i + 1}/10 - Current user:`, currentUser ? { uid: currentUser.uid, email: currentUser.email } : 'null');
+        
+        if (currentUser) {
+          console.log('[Auth] ✅ User found in auth state, breaking wait loop');
+          break;
+        }
+      }
+      
+      // Final check if user is actually signed in
+      const finalUser = window.firebaseClient?.auth?.currentUser;
+      console.log('[Auth] Final current user check:', finalUser ? { uid: finalUser.uid, email: finalUser.email } : 'null');
+      
+      if (!finalUser) {
+        console.error('[Auth] ❌ User not signed in after sign in attempt!');
+        console.error('[Auth] userCredential.user:', userCredential?.user);
+        console.error('[Auth] window.firebaseClient:', window.firebaseClient);
+        console.error('[Auth] window.firebaseClient.auth:', window.firebaseClient?.auth);
+        console.error('[Auth] window.firebaseClient.auth.currentUser:', window.firebaseClient?.auth?.currentUser);
+        
+        // Try to manually trigger auth state update
+        console.log('[Auth] Attempting to manually update UI...');
+        if (userCredential?.user) {
+          console.log('[Auth] Using userCredential.user to update UI');
+          await setAuthUi(userCredential.user);
+        } else {
+          console.error('[Auth] No user in credential, cannot update UI');
+          addMessage('assistant', 'Sign in completed but authentication state was not updated. Please refresh the page.');
+        }
+      } else {
+        console.log('[Auth] ✅ User is signed in, UI should update via auth state listener');
+      }
+      
+    } catch (e) {
+      console.error('[Auth] ❌ Sign in error:', e);
+      console.error('[Auth] Error type:', typeof e);
+      console.error('[Auth] Error constructor:', e?.constructor?.name);
+      console.error('[Auth] Error details:', {
+        code: e?.code,
+        message: e?.message,
+        name: e?.name,
+        stack: e?.stack
+      });
+      
+      const errorMessage = e?.message || String(e);
+      addMessage('assistant', `Sign in failed: ${errorMessage}`);
+    } finally {
+      // Always restore button state, even if there was an error
+      // But only if buttons still exist and are visible (UI might have changed)
+      if (authSignInBtn && authSignInBtn.offsetParent !== null) {
+        authSignInBtn.disabled = false;
+        authSignInBtn.textContent = originalSignInText;
+        console.log('[Auth] Sign in button state restored in finally block');
+      }
+      if (authRegisterBtn && authRegisterBtn.offsetParent !== null) {
+        authRegisterBtn.disabled = false;
+      }
+      console.log('[Auth] ========== SIGN IN HANDLER COMPLETE ==========');
+    }
+  });
+  
+  console.log('[Auth] ✅ Sign in button event listener attached');
+} else {
+  console.error('[Auth] ❌ Cannot set up sign in button - element not found');
+}
+
+// Set up sign out button handler (always available, not dependent on Firebase loading)
+if (authSignOutBtn) {
+  console.log('[Auth] Setting up sign out button event listener...');
+  
+  // Use capture phase to ensure we catch the event early
+  authSignOutBtn.addEventListener('click', async (e) => {
+    console.log('[Auth] ========== SIGN OUT BUTTON CLICKED ==========');
+    console.log('[Auth] Event:', e);
+    console.log('[Auth] Event target:', e.target);
+    console.log('[Auth] Event currentTarget:', e.currentTarget);
+    console.log('[Auth] Button element:', authSignOutBtn);
+    console.log('[Auth] Button disabled?', authSignOutBtn.disabled);
+    console.log('[Auth] Button parent:', authSignOutBtn.parentElement);
+    console.log('[Auth] Button visible?', authSignOutBtn.offsetParent !== null);
+    
+    // Prevent default and stop propagation immediately
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    
+    // Store button reference in case DOM changes
+    const buttonElement = authSignOutBtn;
+    const buttonParent = buttonElement.parentElement;
+    
+    try {
+      console.log('[Auth] Checking for sign out functions...');
+      console.log('[Auth] window.authApi:', window.authApi);
+      console.log('[Auth] window.authApi?.signOutUser:', window.authApi?.signOutUser);
+      console.log('[Auth] window.firebaseClient:', window.firebaseClient);
+      console.log('[Auth] window.firebaseClient?.signOutUser:', window.firebaseClient?.signOutUser);
+      
+      // Try window.authApi first, then fallback to window.firebaseClient
+      let signOutFn = window.authApi?.signOutUser || window.firebaseClient?.signOutUser;
+      
+      if (!signOutFn) {
+        console.error('[Auth] ❌ signOutUser function not available');
+        console.error('[Auth] Available in window.authApi:', Object.keys(window.authApi || {}));
+        console.error('[Auth] Available in window.firebaseClient:', Object.keys(window.firebaseClient || {}));
+        addMessage('assistant', 'Sign out failed: Authentication service not available. Please refresh the page.');
+        return;
+      }
+      
+      console.log('[Auth] ✅ Sign out function found:', signOutFn);
+      console.log('[Auth] Calling signOutUser...');
+      
+      // Disable button during sign out to prevent multiple clicks
+      if (buttonElement) {
+        buttonElement.disabled = true;
+        const originalText = buttonElement.textContent;
+        buttonElement.textContent = 'Signing out...';
+        console.log('[Auth] Button disabled and text changed');
+      }
+      
+      // Call sign out function with timeout
+      console.log('[Auth] Calling signOutFn...');
+      const signOutPromise = signOutFn();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Sign out timed out after 5 seconds')), 5000)
+      );
+      
+      const result = await Promise.race([signOutPromise, timeoutPromise]);
+      console.log('[Auth] ✅ Sign out function returned:', result);
+      console.log('[Auth] Sign out successful');
+      
+      // Immediately reset button state before UI updates
+      if (buttonElement && buttonElement.parentElement) {
+        buttonElement.disabled = false;
+        buttonElement.textContent = 'Sign out';
+        console.log('[Auth] Button state reset before UI update');
+      }
+      
+      // Check if auth state actually changed
+      console.log('[Auth] Checking current user after sign out...');
+      const currentUserAfterSignOut = window.firebaseClient?.auth?.currentUser;
+      console.log('[Auth] Current user after sign out:', currentUserAfterSignOut);
+      
+      // Wait a bit for auth state change to process
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // If user is still signed in, force UI update
+      const stillSignedIn = window.firebaseClient?.auth?.currentUser;
+      if (stillSignedIn) {
+        console.warn('[Auth] ⚠️ User still signed in after sign out, forcing UI update');
+        await setAuthUi(null);
+      }
+      
+      console.log('[Auth] Sign out complete, UI should update via auth state listener');
+      
+      // The auth state change listener will handle UI updates
+    } catch (e) {
+      console.error('[Auth] ❌ Sign out error:', e);
+      console.error('[Auth] Error type:', typeof e);
+      console.error('[Auth] Error constructor:', e?.constructor?.name);
+      console.error('[Auth] Error details:', {
+        code: e?.code,
+        message: e?.message,
+        name: e?.name,
+        stack: e?.stack
+      });
+      
+      // Re-enable button on error
+      if (buttonElement && buttonElement.parentElement) {
+        buttonElement.disabled = false;
+        buttonElement.textContent = 'Sign out';
+        console.log('[Auth] Button re-enabled after error');
+      } else {
+        console.warn('[Auth] ⚠️ Cannot re-enable button - element or parent not found');
+      }
+      
+      const errorMessage = e?.message || String(e);
+      console.error('[Auth] Showing error message to user:', errorMessage);
+      addMessage('assistant', `Sign out failed: ${errorMessage}`);
+      
+      // Try to check auth state even after error
+      try {
+        const currentUser = window.firebaseClient?.auth?.currentUser;
+        console.log('[Auth] Current user after error:', currentUser);
+        if (!currentUser) {
+          console.log('[Auth] User actually signed out despite error, updating UI');
+          await setAuthUi(null);
+        }
+      } catch (checkError) {
+        console.error('[Auth] Error checking user state:', checkError);
+      }
+    }
+    console.log('[Auth] ========== SIGN OUT HANDLER COMPLETE ==========');
+  }, true); // Use capture phase
+  
+  console.log('[Auth] ✅ Sign out button event listener attached (capture phase)');
+  
+  // Also try mousedown as backup
+  authSignOutBtn.addEventListener('mousedown', (e) => {
+    console.log('[Auth] Sign out button mousedown event');
+    e.preventDefault(); // Prevent any default behavior
+  });
+  
+} else {
+  console.error('[Auth] ❌ Cannot set up sign out button - element not found');
+}
+
 // Init
 (async function init() {
   // [ADDED] Initialize expandable textbox first
@@ -630,6 +1094,7 @@ function initializeExpandableTextbox() {
         initAuthPersistence,
         enableOfflinePersistenceSafe,
         onAuthChanged,
+        onIdTokenChangedListener,
         signInWithEmailPassword,
         registerWithEmailPassword,
         signOutUser
@@ -638,29 +1103,133 @@ function initializeExpandableTextbox() {
       await initAuthPersistence();
       await enableOfflinePersistenceSafe();
       
-      onAuthChanged((user) => {
+      // Listen for auth state changes
+      const authStateUnsubscribe = onAuthChanged(async (user) => {
+        console.log('[Auth] ========== AUTH STATE CHANGED ==========');
+        console.log('[Auth] New user state:', user ? { uid: user.uid, email: user.email } : 'null (signed out)');
+        console.log('[Auth] Stack trace:', new Error().stack);
+        
+        // Verify the user matches Firebase auth
+        const firebaseUser = window.firebaseClient?.auth?.currentUser;
+        console.log('[Auth] Firebase auth.currentUser:', firebaseUser ? { uid: firebaseUser.uid, email: firebaseUser.email } : 'null');
+        console.log('[Auth] Users match?', (user?.uid === firebaseUser?.uid) || (!user && !firebaseUser));
+        
         if (user) {
-          console.log('[Auth] Signed in:', { uid: user.uid, email: user.email });
+          console.log('[Email Verification] Auth state changed - user signed in:', { 
+            uid: user.uid, 
+            email: user.email, 
+            emailVerified: user.emailVerified 
+          });
           // Ensure user profile document exists and is updated
           window.firebaseClient.ensureUserProfile().catch((e) => {
             console.error('[Auth] ensureUserProfile failed:', e);
           });
-          setAuthUi(user);
+          console.log('[Auth] Calling setAuthUi with user...');
+          await setAuthUi(user);
+          console.log('[Auth] setAuthUi completed');
           // After sign-in, try to load existing history for the current problem
           void loadAndRenderHistoryForCurrentProblem();
+          
+          // Start periodic checking if email is not verified
+          if (!user.emailVerified) {
+            startPeriodicVerificationCheck(user);
+          }
         } else {
-          console.log('[Auth] Signed out');
-          setAuthUi(null);
+          console.log('[Email Verification] Auth state changed - user signed out');
+          console.log('[Auth] Updating UI to signed-out state...');
+          await setAuthUi(null);
+          console.log('[Auth] UI updated to signed-out state');
         }
+        console.log('[Auth] ========== AUTH STATE CHANGE HANDLED ==========');
       });
+      
+      // Store unsubscribe function for debugging
+      window._authStateUnsubscribe = authStateUnsubscribe;
+      console.log('[Auth] Auth state listener set up, unsubscribe function stored in window._authStateUnsubscribe');
+      
+      // Listen for ID token changes (fires when email is verified)
+      // Add guard to prevent infinite loops
+      let isProcessingTokenChange = false;
+      window._isProcessingTokenChange = false; // Global flag for firebaseClient to check
+      
+      if (onIdTokenChangedListener) {
+        onIdTokenChangedListener(async (user) => {
+          // Prevent recursive calls
+          if (isProcessingTokenChange || window._isProcessingTokenChange) {
+            console.log('[Email Verification] ⚠️ Token change already being processed, skipping...');
+            return;
+          }
+          
+          if (user) {
+            isProcessingTokenChange = true;
+            window._isProcessingTokenChange = true;
+            
+            console.log('[Email Verification] ID token changed - checking verification status:', { 
+              uid: user.uid, 
+              email: user.email, 
+              emailVerified: user.emailVerified 
+            });
+            
+            try {
+              // Use the user object directly from token change - DON'T reload (it causes infinite loop)
+              const wasVerified = window.firebaseClient.lastKnownVerifiedStatus || false;
+              const isVerified = user.emailVerified; // Use value from token change event
+              window.firebaseClient.lastKnownVerifiedStatus = isVerified;
+              
+              console.log('[Email Verification] Verification status - was:', wasVerified, 'now:', isVerified);
+              
+              if (!wasVerified && isVerified) {
+                console.log('[Email Verification] 🎉 Email verification detected! User just verified their email.');
+                // Update UI immediately without reloading
+                const currentUser = window.firebaseClient?.auth?.currentUser;
+                if (currentUser) {
+                  currentUser.emailVerified = true;
+                  await updateEmailVerificationStatus(currentUser, true); // Skip reload
+                  // Don't show message - user already knows their email is verified
+                  verificationMessageShown = true;
+                }
+                
+                // Stop periodic checking since email is now verified
+                if (window.verificationCheckInterval) {
+                  clearInterval(window.verificationCheckInterval);
+                  window.verificationCheckInterval = null;
+                  console.log('[Email Verification] Stopped periodic checking - email is now verified');
+                }
+              } else if (isVerified) {
+                // Already verified, just update UI without reloading
+                const currentUser = window.firebaseClient?.auth?.currentUser;
+                if (currentUser) {
+                  currentUser.emailVerified = true;
+                  await updateEmailVerificationStatus(currentUser, true); // Skip reload
+                }
+              }
+            } catch (error) {
+              console.error('[Email Verification] Error checking verification on token change:', error);
+            } finally {
+              // Reset flag after a delay to allow the token change to complete
+              setTimeout(() => {
+                isProcessingTokenChange = false;
+                window._isProcessingTokenChange = false;
+              }, 1000);
+            }
+          } else {
+            isProcessingTokenChange = false;
+            window._isProcessingTokenChange = false;
+          }
+        });
+      }
       
       // Temporary helpers for quick manual testing in the console
       window.authApi = {
         signInWithEmailPassword,
         registerWithEmailPassword,
-        signOutUser
+        signOutUser,
+        sendVerificationEmail: window.firebaseClient?.sendVerificationEmail,
+        checkEmailVerified: window.firebaseClient?.checkEmailVerified
       };
       console.log('🧩 Auth helpers available: window.authApi');
+      console.log('[Auth] window.authApi.signOutUser:', window.authApi.signOutUser);
+      console.log('[Auth] Type of signOutUser:', typeof window.authApi.signOutUser);
 
       // Expose basic chat Firestore helpers for manual testing
       const {
@@ -677,34 +1246,35 @@ function initializeExpandableTextbox() {
       };
       console.log('🧩 Chat helpers available: window.chatApi');
 
-      // Wire UI buttons
-      authSignInBtn?.addEventListener('click', async () => {
-        const email = (authEmailInput?.value || '').trim();
-        const password = (authPasswordInput?.value || '').trim();
-        if (!email || !password) return;
-        authSignInBtn.disabled = true;
-        authRegisterBtn && (authRegisterBtn.disabled = true);
-        try {
-          await window.authApi.signInWithEmailPassword(email, password);
-          if (authPasswordInput) authPasswordInput.value = '';
-        } catch (e) {
-          addMessage('assistant', `Sign in failed: ${e?.message || e}`);
-        } finally {
-          authSignInBtn.disabled = false;
-          authRegisterBtn && (authRegisterBtn.disabled = false);
-        }
-      });
+      // Note: Sign in button handler is set up outside this block to ensure it's always available
 
       authRegisterBtn?.addEventListener('click', async () => {
         const email = (authEmailInput?.value || '').trim();
         const password = (authPasswordInput?.value || '').trim();
-        if (!email || !password) return;
+        if (!email || !password) {
+          console.log('[Email Verification] Registration skipped: empty email or password');
+          return;
+        }
+        console.log('[Email Verification] Registration button clicked for:', email);
         authSignInBtn && (authSignInBtn.disabled = true);
         authRegisterBtn.disabled = true;
         try {
-          await window.authApi.registerWithEmailPassword(email, password);
+          console.log('[Email Verification] Calling registerWithEmailPassword...');
+          const userCredential = await window.authApi.registerWithEmailPassword(email, password);
+          console.log('[Email Verification] Registration successful:', { 
+            uid: userCredential.user?.uid, 
+            email: userCredential.user?.email,
+            emailVerified: userCredential.user?.emailVerified
+          });
           if (authPasswordInput) authPasswordInput.value = '';
+          addMessage('assistant', 'Registration successful! A verification email has been sent to your inbox. Please check your email and click the verification link.');
         } catch (e) {
+          console.error('[Email Verification] Registration error:', e);
+          console.error('[Email Verification] Error details:', {
+            code: e?.code,
+            message: e?.message,
+            stack: e?.stack
+          });
           addMessage('assistant', `Registration failed: ${e?.message || e}`);
         } finally {
           authSignInBtn && (authSignInBtn.disabled = false);
@@ -712,11 +1282,76 @@ function initializeExpandableTextbox() {
         }
       });
 
-      authSignOutBtn?.addEventListener('click', async () => {
+      // Note: Sign out button handler is set up outside this block to ensure it's always available
+
+      // Handle check verification button
+      checkVerificationBtn?.addEventListener('click', async () => {
+        console.log('[Email Verification] Check verification button clicked');
+        const currentUser = window.firebaseClient?.auth?.currentUser;
+        if (!currentUser) {
+          console.warn('[Email Verification] No user signed in');
+          return;
+        }
+        
+        checkVerificationBtn.disabled = true;
+        checkVerificationBtn.textContent = 'Checking...';
         try {
-          await window.authApi.signOutUser();
+          if (window.firebaseClient?.checkEmailVerified) {
+            const wasVerified = currentUser.emailVerified;
+            const isVerified = await window.firebaseClient.checkEmailVerified(true); // Force reload for manual check
+            currentUser.emailVerified = isVerified;
+            
+            if (!wasVerified && isVerified) {
+              console.log('[Email Verification] 🎉 Email verification detected!');
+              // Don't show message - user already knows their email is verified
+              verificationMessageShown = true;
+            } else if (isVerified) {
+              // Don't show message for verified email
+            } else {
+              addMessage('assistant', '⚠️ Your email is not yet verified. Please check your inbox and click the verification link.');
+            }
+            
+            await updateEmailVerificationStatus(currentUser);
+          } else {
+            addMessage('assistant', 'Unable to check verification status. Please try again later.');
+          }
         } catch (e) {
-          addMessage('assistant', `Sign out failed: ${e?.message || e}`);
+          console.error('[Email Verification] Error checking verification:', e);
+          addMessage('assistant', `Error checking verification: ${e?.message || e}`);
+        } finally {
+          checkVerificationBtn.disabled = false;
+          checkVerificationBtn.textContent = 'Check';
+        }
+      });
+
+      // Handle resend verification email button
+      resendVerificationBtn?.addEventListener('click', async () => {
+        console.log('[Email Verification] Resend button clicked');
+        if (!window.firebaseClient?.sendVerificationEmail) {
+          console.error('[Email Verification] ❌ sendVerificationEmail function not available');
+          return;
+        }
+        console.log('[Email Verification] sendVerificationEmail function available, proceeding...');
+        resendVerificationBtn.disabled = true;
+        try {
+          console.log('[Email Verification] Calling sendVerificationEmail...');
+          await window.firebaseClient.sendVerificationEmail();
+          console.log('[Email Verification] ✅ Resend successful');
+          addMessage('assistant', 'Verification email sent! Please check your inbox.');
+          resendVerificationBtn.textContent = 'Sent!';
+          setTimeout(() => {
+            resendVerificationBtn.textContent = 'Resend';
+            resendVerificationBtn.disabled = false;
+          }, 3000);
+        } catch (e) {
+          console.error('[Email Verification] ❌ Resend error:', e);
+          console.error('[Email Verification] Error details:', {
+            code: e?.code,
+            message: e?.message,
+            stack: e?.stack
+          });
+          addMessage('assistant', `Failed to send verification email: ${e?.message || e}`);
+          resendVerificationBtn.disabled = false;
         }
       });
     } else {
@@ -888,6 +1523,58 @@ window.debugTabState = async function() {
   await updateTabState();
   console.log('After updateTabState:', problemMetaEl.textContent);
 };
+
+// Function to start periodic verification checking
+function startPeriodicVerificationCheck(user) {
+  // Stop any existing interval
+  if (window.verificationCheckInterval) {
+    clearInterval(window.verificationCheckInterval);
+  }
+  
+  console.log('[Email Verification] Starting periodic verification check (every 10 seconds)');
+  
+  // Check every 10 seconds if email is not verified
+  window.verificationCheckInterval = setInterval(async () => {
+    const currentUser = window.firebaseClient?.auth?.currentUser;
+    if (!currentUser || currentUser.uid !== user.uid) {
+      // User changed or signed out, stop checking
+      clearInterval(window.verificationCheckInterval);
+      window.verificationCheckInterval = null;
+      console.log('[Email Verification] Stopped periodic checking - user changed');
+      return;
+    }
+    
+    try {
+      console.log('[Email Verification] Periodic check - verifying status...');
+      if (window.firebaseClient?.checkEmailVerified) {
+        const wasVerified = currentUser.emailVerified;
+        const isVerified = await window.firebaseClient.checkEmailVerified();
+        currentUser.emailVerified = isVerified;
+        
+        if (!wasVerified && isVerified) {
+          console.log('[Email Verification] 🎉 Email verification detected during periodic check!');
+          await updateEmailVerificationStatus(currentUser);
+          
+          // Don't show message - user already knows their email is verified
+          verificationMessageShown = true;
+          
+          // Stop checking since email is now verified
+          clearInterval(window.verificationCheckInterval);
+          window.verificationCheckInterval = null;
+          console.log('[Email Verification] Stopped periodic checking - email is now verified');
+        } else if (isVerified) {
+          // Already verified, just update UI and stop checking
+          await updateEmailVerificationStatus(currentUser);
+          clearInterval(window.verificationCheckInterval);
+          window.verificationCheckInterval = null;
+          console.log('[Email Verification] Stopped periodic checking - email is verified');
+        }
+      }
+    } catch (error) {
+      console.error('[Email Verification] Error during periodic check:', error);
+    }
+  }, 10000); // Check every 10 seconds
+}
 
 console.log("🛠️ Debug functions available: window.debugTabState()");
 

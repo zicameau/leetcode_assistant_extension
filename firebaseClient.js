@@ -7,9 +7,12 @@ import {
   setPersistence,
   indexedDBLocalPersistence,
   onAuthStateChanged,
+  onIdTokenChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut
+  signOut,
+  sendEmailVerification,
+  reload
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -68,16 +71,154 @@ export function onAuthChanged(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
-export function signInWithEmailPassword(email, password) {
-  return signInWithEmailAndPassword(auth, email, password);
+export function onIdTokenChangedListener(callback) {
+  return onIdTokenChanged(auth, callback);
 }
 
-export function registerWithEmailPassword(email, password) {
-  return createUserWithEmailAndPassword(auth, email, password);
+export function signInWithEmailPassword(email, password) {
+  console.log('[Firebase Auth] signInWithEmailPassword called');
+  console.log('[Firebase Auth] Email:', email);
+  console.log('[Firebase Auth] Current user before sign in:', auth.currentUser?.uid);
+  try {
+    const result = signInWithEmailAndPassword(auth, email, password);
+    console.log('[Firebase Auth] signInWithEmailAndPassword promise created:', result);
+    // Add handlers to log when it completes
+    if (result && typeof result.then === 'function') {
+      result.then((userCredential) => {
+        console.log('[Firebase Auth] ✅ Sign in promise resolved');
+        console.log('[Firebase Auth] User credential:', userCredential?.user ? { uid: userCredential.user.uid, email: userCredential.user.email } : null);
+        console.log('[Firebase Auth] Current user after sign in:', auth.currentUser?.uid);
+      }).catch((error) => {
+        console.error('[Firebase Auth] ❌ Sign in promise rejected:', error);
+        console.error('[Firebase Auth] Error code:', error?.code);
+        console.error('[Firebase Auth] Error message:', error?.message);
+      });
+    }
+    return result;
+  } catch (error) {
+    console.error('[Firebase Auth] ❌ Error in signInWithEmailPassword:', error);
+    throw error;
+  }
+}
+
+export async function registerWithEmailPassword(email, password) {
+  console.log('[Email Verification] Starting registration for:', email);
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  console.log('[Email Verification] User created:', { uid: userCredential.user?.uid, email: userCredential.user?.email });
+  
+  // Send verification email after registration
+  if (userCredential.user) {
+    try {
+      console.log('[Email Verification] Sending verification email to:', userCredential.user.email);
+      await sendEmailVerification(userCredential.user);
+      console.log('[Email Verification] ✅ Verification email sent successfully');
+    } catch (error) {
+      console.error('[Email Verification] ❌ Error sending verification email:', error);
+      console.error('[Email Verification] Error details:', {
+        code: error.code,
+        message: error.message,
+        stack: error.stack
+      });
+      throw error; // Re-throw so UI can handle it
+    }
+  } else {
+    console.warn('[Email Verification] ⚠️ No user in credential, cannot send verification email');
+  }
+  return userCredential;
 }
 
 export function signOutUser() {
-  return signOut(auth);
+  console.log('[Firebase Auth] signOutUser called');
+  console.log('[Firebase Auth] Current user before sign out:', auth.currentUser?.uid);
+  try {
+    const result = signOut(auth);
+    console.log('[Firebase Auth] signOut promise created:', result);
+    // Add a then handler to log when it completes
+    if (result && typeof result.then === 'function') {
+      result.then(() => {
+        console.log('[Firebase Auth] ✅ Sign out promise resolved');
+        console.log('[Firebase Auth] Current user after sign out:', auth.currentUser);
+      }).catch((error) => {
+        console.error('[Firebase Auth] ❌ Sign out promise rejected:', error);
+      });
+    }
+    return result;
+  } catch (error) {
+    console.error('[Firebase Auth] ❌ Error in signOutUser:', error);
+    throw error;
+  }
+}
+
+export async function sendVerificationEmail() {
+  console.log('[Email Verification] sendVerificationEmail called');
+  const user = requireUser();
+  console.log('[Email Verification] Current user:', { 
+    uid: user.uid, 
+    email: user.email, 
+    emailVerified: user.emailVerified 
+  });
+  
+  if (user.emailVerified) {
+    console.log('[Email Verification] ⚠️ Email already verified, skipping send');
+    throw new Error('Email is already verified');
+  }
+  
+  try {
+    console.log('[Email Verification] Sending verification email to:', user.email);
+    const result = await sendEmailVerification(user);
+    console.log('[Email Verification] ✅ Verification email sent successfully:', result);
+    return result;
+  } catch (error) {
+    console.error('[Email Verification] ❌ Error sending verification email:', error);
+    console.error('[Email Verification] Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
+    throw error;
+  }
+}
+
+export async function checkEmailVerified(forceReload = false) {
+  console.log('[Email Verification] checkEmailVerified called, forceReload:', forceReload);
+  const user = requireUser();
+  console.log('[Email Verification] User before reload:', { 
+    uid: user.uid, 
+    email: user.email, 
+    emailVerified: user.emailVerified 
+  });
+  
+  // If we're being called from ID token change listener, don't reload (it causes infinite loop)
+  if (!forceReload && window._isProcessingTokenChange) {
+    console.log('[Email Verification] ⚠️ Token change in progress, skipping reload to avoid loop');
+    return user.emailVerified;
+  }
+  
+  try {
+    // Only reload if explicitly requested (e.g., from manual check button)
+    if (forceReload) {
+      console.log('[Email Verification] Reloading user to get latest status...');
+      await reload(user);
+      console.log('[Email Verification] User after reload:', { 
+        uid: user.uid, 
+        email: user.email, 
+        emailVerified: user.emailVerified 
+      });
+    } else {
+      console.log('[Email Verification] Using current user.emailVerified without reload:', user.emailVerified);
+    }
+    return user.emailVerified;
+  } catch (error) {
+    console.error('[Email Verification] ❌ Error reloading user:', error);
+    console.error('[Email Verification] Error details:', {
+      code: error.code,
+      message: error.message,
+      stack: error.stack
+    });
+    // Return current status if reload fails
+    console.log('[Email Verification] Returning current emailVerified status:', user.emailVerified);
+    return user.emailVerified;
+  }
 }
 
 function requireUser() {
