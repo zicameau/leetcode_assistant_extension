@@ -15,6 +15,9 @@ body {
   color: var(--text);
   font: 14px/1.3 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
+form {
+  margin: 0;
+}
 
 #app { display: flex; flex-direction: column; height: 100%; }
 
@@ -91,7 +94,17 @@ body {
 .bubble.assistant { border-color: #3a2a12; box-shadow: inset 0 0 0 1px rgba(255,180,58,0.15); }
 .bubble.user { border-color: #1f2a44; }
 
-.composer { border-top: 1px solid var(--border); background: var(--panel); padding: 8px; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; }
+.composer { 
+  border-top: 1px solid var(--border); 
+  background: var(--panel); 
+  padding: 8px;
+  display: grid; 
+  grid-template-columns: minmax(0, 1fr) auto; 
+  gap: 8px;
+  align-items: start; 
+  box-sizing: border-box; 
+  width: 100%;
+}
 .composerLeft { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .composerContent { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .input { width: 100%; resize: vertical; min-height: 40px; max-height: 160px; border-radius: 8px; border: 1px solid var(--border); background: #0e1526; color: var(--text); padding: 10px 12px; }
@@ -99,7 +112,18 @@ body {
 .modelDropdown { flex: 1; background: #0e1526; color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
 .modelDropdown:hover { border-color: var(--accent); }
 .modelDropdown:focus { outline: none; border-color: var(--accent); }
-.send { background: var(--accent); color: #111; border: none; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; align-self: start; }
+.send { 
+  background: var(--accent); 
+  color: #111; 
+  border: none; 
+  padding: 10px 12px; 
+  border-radius: 8px; 
+  cursor: pointer; 
+  font-weight: 600; 
+  align-self: start; 
+  margin: 0;
+  flex-shrink: 0;
+}
 .send:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ExpandableTextbox component styles */
@@ -325,5 +349,4 @@ body {
 .bubble.assistant .code-block-container + .message-text {
   margin-top: 12px;
 }
-
 
