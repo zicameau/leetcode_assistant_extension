@@ -45,10 +45,53 @@ async function updateActiveLeetCodeTabs() {
       leetCodeTabCount: leetCodeTabIds.size
     });
     
+    // Close side panel if user switches to non-LeetCode tab
+    if (isSidePanelAvailable() && !isOnLeetCodeTab) {
+      // Close side panel for the current active tab
+      if (currentActiveTab?.id) {
+        try {
+          console.log('Closing side panel for non-LeetCode tab:', currentActiveTab.id);
+          await chrome.sidePanel.close({ tabId: currentActiveTab.id });
+          sidePanelOpen.delete(currentActiveTab.id);
+        } catch (error) {
+          // Side panel might not be open, which is fine
+          console.log('Side panel already closed or not open for tab:', currentActiveTab.id);
+          sidePanelOpen.delete(currentActiveTab.id);
+        }
+      }
+      
+      // Also close side panels for any other non-LeetCode tabs that might have it open
+      for (const tabId of Array.from(sidePanelOpen)) {
+        const tab = tabs.find(t => t.id === tabId);
+        if (tab && !isLeetCodeUrl(tab.url)) {
+          try {
+            console.log('Closing side panel for non-LeetCode tab:', tabId);
+            await chrome.sidePanel.close({ tabId });
+            sidePanelOpen.delete(tabId);
+          } catch (error) {
+            console.log('Side panel already closed or not open for tab:', tabId);
+            sidePanelOpen.delete(tabId);
+          }
+        }
+      }
+    }
+    
     if (!hasLeetCodeTabs) {
-      // No LeetCode tabs at all - clear everything
+      // No LeetCode tabs at all - clear everything and close all side panels
       console.log('No LeetCode tabs active, clearing problem from storage');
       await chrome.storage.local.remove(['leetcodeProblem', 'tabState']);
+      
+      // Close side panels for all tabs
+      if (isSidePanelAvailable()) {
+        for (const tabId of Array.from(sidePanelOpen)) {
+          try {
+            await chrome.sidePanel.close({ tabId });
+            sidePanelOpen.delete(tabId);
+          } catch (error) {
+            console.error('Error closing side panel for tab', tabId, ':', error);
+          }
+        }
+      }
     } else if (!isOnLeetCodeTab) {
       // Has LeetCode tabs but user is on a different tab
       console.log('User on non-LeetCode tab, storing "go back" state');
@@ -119,9 +162,27 @@ if (isSidePanelAvailable() && chrome.sidePanel.onClosed) {
 
 // Listen for tab updates (URL changes, loading state changes)
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // Only process when URL changes and tab is complete
-  if (changeInfo.url && changeInfo.status === 'complete') {
-    await updateActiveLeetCodeTabs();
+  // Process when URL changes
+  if (changeInfo.url) {
+    const isLeetCode = isLeetCodeUrl(changeInfo.url);
+    
+    // If the tab is no longer a LeetCode URL, close the side panel immediately
+    if (isSidePanelAvailable() && !isLeetCode) {
+      try {
+        console.log('URL changed to non-LeetCode, closing side panel for tab:', tabId);
+        await chrome.sidePanel.close({ tabId });
+        sidePanelOpen.delete(tabId);
+      } catch (error) {
+        // Side panel might not be open, which is fine
+        console.log('Side panel already closed or not open for tab:', tabId);
+        sidePanelOpen.delete(tabId);
+      }
+    }
+    
+    // Update state when tab is complete
+    if (changeInfo.status === 'complete') {
+      await updateActiveLeetCodeTabs();
+    }
   }
 });
 
@@ -632,5 +693,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   return false;
 });
-
 
