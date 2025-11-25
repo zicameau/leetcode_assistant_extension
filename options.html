@@ -3,17 +3,192 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>LeetCode Assistant Settings</title>
+    <title>LeetCode Assistant</title>
     <style>
-      body { font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial; padding: 24px; }
-      label { display: block; margin-bottom: 8px; }
+      body { 
+        font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial; 
+        padding: 0; 
+        margin: 0;
+        background: #f8f9fa;
+      }
+      
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        min-height: 100vh;
+      }
+      
+      .header {
+        background: linear-gradient(135deg, #ffb43a, #ff8c00);
+        color: white;
+        padding: 24px;
+        text-align: center;
+      }
+      
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+      }
+      
+      .tabs {
+        display: flex;
+        background: #fff;
+        border-bottom: 1px solid #e0e0e0;
+        margin: 0;
+        padding: 0;
+      }
+      
+      .tab {
+        flex: 1;
+        padding: 16px 24px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 500;
+        color: #666;
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s ease;
+      }
+      
+      .tab:hover {
+        background: #f5f5f5;
+        color: #333;
+      }
+      
+      .tab.active {
+        color: #ffb43a;
+        border-bottom-color: #ffb43a;
+        background: #fff;
+      }
+      
+      .tab-content {
+        display: none;
+        padding: 32px;
+      }
+      
+      .tab-content.active {
+        display: block;
+      }
+      
+      label { display: block; margin-bottom: 8px; font-weight: 500; }
       input { width: 420px; max-width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; }
       button { margin-top: 12px; padding: 10px 14px; border-radius: 8px; border: none; background: #ffb43a; color: #111; font-weight: 600; cursor: pointer; }
       .hint { color: #666; margin-top: 6px; }
+      
+      .workflow-section {
+        margin-bottom: 32px;
+      }
+      
+      .workflow-section h2 {
+        color: #333;
+        margin-bottom: 16px;
+        font-size: 20px;
+        font-weight: 600;
+      }
+      
+      .workflow-section h3 {
+        color: #ffb43a;
+        margin: 20px 0 12px 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+      
+      .workflow-section p {
+        margin-bottom: 12px;
+        line-height: 1.6;
+      }
+      
+      .workflow-section ul {
+        margin: 8px 0 16px 20px;
+      }
+      
+      .workflow-section li {
+        margin-bottom: 8px;
+        line-height: 1.5;
+      }
+      
+      .example-box {
+        background: #f8f9fa;
+        border-left: 4px solid #ffb43a;
+        padding: 16px;
+        margin: 16px 0;
+        border-radius: 0 8px 8px 0;
+      }
+      
+      .example-box strong {
+        color: #333;
+      }
+      
+      .step-number {
+        display: inline-block;
+        background: #ffb43a;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 24px;
+        font-weight: 600;
+        margin-right: 8px;
+        font-size: 12px;
+      }
     </style>
   </head>
   <body>
-    <h1>LeetCode Assistant Settings</h1>
+    <div class="container">
+      <div class="header">
+        <h1>🚀 LeetCode Assistant</h1>
+      </div>
+      
+      <div class="tabs">
+        <button class="tab active" data-tab="getting-started">Getting Started</button>
+        <button class="tab" data-tab="settings">Settings</button>
+      </div>
+      
+      <!-- Getting Started Tab -->
+      <div class="tab-content active" id="getting-started">
+        <div class="workflow-section">
+          <h2>Basic Workflow</h2>
+          
+          <h3><span class="step-number">1</span>Visit a LeetCode problem:</h3>
+          <p>Go to any problem page, e.g., <strong>https://leetcode.com/problems/two-sum/</strong></p>
+          
+          <h3><span class="step-number">2</span>Open the assistant:</h3>
+          <p>Click the extension icon in your toolbar</p>
+          <p>The side panel will open on the right side</p>
+          
+          <h3><span class="step-number">3</span>Verify problem detection:</h3>
+          <p>You should see the problem name at the top (e.g., <strong>"two sum · #1"</strong>)</p>
+          <p>If not detected, refresh the page</p>
+          
+          <h3><span class="step-number">4</span>Ask questions:</h3>
+          <p>Type your question in the input box</p>
+          
+          <div class="example-box">
+            <strong>Examples:</strong>
+            <ul>
+              <li>"Can you give me a hint for this problem?"</li>
+              <li>"What pattern should I use?"</li>
+              <li>"Explain the two pointers approach"</li>
+              <li>"What's the time complexity of a brute force solution?"</li>
+            </ul>
+          </div>
+          
+          <h3><span class="step-number">5</span>Get contextual help:</h3>
+          <ul>
+            <li>The AI knows which problem you're on</li>
+            <li>It provides hints before full solutions</li>
+            <li>Explanations include time/space complexity</li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- Settings Tab -->
+      <div class="tab-content" id="settings">
+        <h2>LeetCode Assistant Settings</h2>
     
     <div style="margin-bottom: 24px;">
       <label for="selectedModel">Select AI Model</label>
@@ -43,9 +218,11 @@
 
     <div class="hint" style="margin-bottom: 12px;">All keys are stored locally via chrome.storage.local</div>
     <button id="saveBtn">Save</button>
+      </div>
+    </div>
 
     <script src="options.js"></script>
   </body>
-  </html>
+</html>
 
 
