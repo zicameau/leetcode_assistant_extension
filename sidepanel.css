@@ -39,6 +39,110 @@ form {
 .resetBtn { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 6px 8px; border-radius: 6px; cursor: pointer; }
 .resetBtn:hover { border-color: var(--accent); }
 
+.auth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: #0e1526;
+}
+.auth input[type="email"],
+.auth input[type="password"] {
+  background: #0e1526;
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  min-width: 0;
+}
+.auth input[type="email"]:focus,
+.auth input[type="password"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255,180,58,0.15);
+}
+.authSignedOut { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.authSignedIn { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.authSignedIn > *:first-child { display: flex; align-items: center; gap: 8px; width: 100%; }
+.auth button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.auth button:hover { border-color: var(--accent); color: var(--accent); }
+.auth #authSignOut { background: var(--accent); color: #111; border: none; }
+.auth #authSignOut:hover { filter: brightness(1.05); }
+.auth #authUserEmail { color: var(--muted); font-size: 12px; }
+.emailVerificationStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(255, 180, 58, 0.1);
+  border: 1px solid rgba(255, 180, 58, 0.3);
+  width: 100%;
+  font-size: 12px;
+}
+.emailVerificationStatus.verified {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+.verificationStatusText {
+  color: var(--muted);
+  flex: 1;
+}
+.verificationStatusText.verified {
+  color: #22c55e;
+}
+.verificationStatusText.unverified {
+  color: #ffb43a;
+}
+.resendVerificationBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.resendVerificationBtn:hover {
+  border-color: var(--accent);
+  background: rgba(255, 180, 58, 0.1);
+}
+.resendVerificationBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.checkVerificationBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.checkVerificationBtn:hover {
+  border-color: var(--text);
+  background: rgba(229, 231, 235, 0.1);
+}
+.checkVerificationBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .messages {
   flex: 1;
   overflow: auto;
