@@ -122,19 +122,43 @@
         color: #333;
       }
       
-      .step-number {
-        display: inline-block;
-        background: #ffb43a;
-        color: white;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        text-align: center;
-        line-height: 24px;
-        font-weight: 600;
-        margin-right: 8px;
-        font-size: 12px;
-      }
+       .step-number {
+         display: inline-block;
+         background: #ffb43a;
+         color: white;
+         width: 24px;
+         height: 24px;
+         border-radius: 50%;
+         text-align: center;
+         line-height: 24px;
+         font-weight: 600;
+         margin-right: 8px;
+         font-size: 12px;
+       }
+       
+       .faq-item {
+         margin-bottom: 24px;
+         padding-bottom: 20px;
+         border-bottom: 1px solid #eee;
+       }
+       
+       .faq-item:last-child {
+         border-bottom: none;
+       }
+       
+       .faq-question {
+         font-weight: 600;
+         color: #333;
+         margin-bottom: 12px;
+         font-size: 16px;
+         line-height: 1.4;
+       }
+       
+       .faq-answer {
+         color: #555;
+         line-height: 1.6;
+         margin-left: 0;
+       }
     </style>
   </head>
   <body>
@@ -144,12 +168,14 @@
       </div>
       
       <div class="tabs">
-        <button class="tab active" data-tab="getting-started">Getting Started</button>
+        <button class="tab active" data-tab="about">About</button>
+        <button class="tab" data-tab="getting-started">Getting Started</button>
+        <button class="tab" data-tab="faq">FAQ</button>
         <button class="tab" data-tab="settings">Settings</button>
       </div>
       
       <!-- Getting Started Tab -->
-      <div class="tab-content active" id="getting-started">
+      <div class="tab-content" id="getting-started">
         <div class="workflow-section">
           <h2>Basic Workflow</h2>
           
@@ -183,6 +209,125 @@
             <li>It provides hints before full solutions</li>
             <li>Explanations include time/space complexity</li>
           </ul>
+        </div>
+      </div>
+      
+      <!-- About Tab -->
+      <div class="tab-content active" id="about">
+        <div class="workflow-section">
+          <h2>About LeetCode Assistant</h2>
+          <p>
+            LeetCode Assistant is your intelligent coding companion that helps you debug, understand, and improve your LeetCode solutions. 
+            Instead of struggling alone with tricky bugs or unclear error messages, get instant AI-powered guidance right where you're coding.
+          </p>
+          
+          <h3>Key Features:</h3>
+          <ul>
+            <li><strong>Smart Debugging:</strong> Paste your code and get detailed explanations of errors, logic issues, and edge cases</li>
+            <li><strong>Problem Context Awareness:</strong> Automatically detects the LeetCode problem you're working on and provides relevant help</li>
+            <li><strong>Multi-Model Support:</strong> Choose from GPT-4, Gemini, Claude, and other leading AI models</li>
+            <li><strong>Code Analysis:</strong> Understand time/space complexity, identify optimization opportunities, and learn best practices</li>
+            <li><strong>Conversation History:</strong> Keep track of your debugging journey with persistent chat history (when signed in)</li>
+            <li><strong>Privacy First:</strong> All API keys stored locally; your code never leaves your browser unless you choose to save it</li>
+          </ul>
+          
+          <p>
+            <strong>Who is this for?</strong> Whether you're a LeetCode enthusiast grinding daily problems, a student preparing for technical interviews, 
+            or a developer looking to improve your algorithmic thinking, this extension is designed to accelerate your learning while helping you 
+            understand the "why" behind solutions, not just the "what."
+          </p>
+        </div>
+      </div>
+      
+      <!-- FAQ Tab -->
+      <div class="tab-content" id="faq">
+        <div class="workflow-section">
+          <h2>Frequently Asked Questions</h2>
+          
+          <div class="faq-item">
+            <div class="faq-question">How does the extension work?</div>
+            <div class="faq-answer">
+              When you're on a LeetCode problem page, the extension automatically detects the problem details. You can paste your code 
+              or describe your issue in the chat interface, and the AI will analyze your code, explain errors, suggest fixes, and help 
+              you understand the solution approach. The extension uses your selected AI model (GPT-4, Gemini, or Claude) to provide 
+              intelligent, context-aware assistance.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question">What programming languages are supported?</div>
+            <div class="faq-answer">
+              The extension supports all major programming languages commonly used on LeetCode, including Python, Java, JavaScript, 
+              C++, C#, Go, Rust, Swift, and more. The AI models are trained on code across multiple languages and can provide 
+              language-specific guidance and best practices.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question">Does it give me solutions or just debugging help?</div>
+            <div class="faq-answer">
+              The extension is designed to help you learn, not just give answers. It focuses on debugging your existing code, explaining 
+              errors, suggesting improvements, and guiding your thinking. While it can provide hints and explain solution approaches, 
+              it encourages you to understand the problem-solving process rather than simply copying solutions.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question">How is my privacy handled?</div>
+            <div class="faq-answer">
+              Your privacy is a top priority. All API keys are stored locally in your browser using Chrome's secure storage. Your code 
+              and conversations are sent directly to the AI provider you choose (OpenAI, Google, or Anthropic) for processing. When you're 
+              signed in, chat history is stored securely. In guest mode, no data is persisted. We never collect, store, or share your 
+              personal information or code.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question">Do I need to be signed in to use the extension?</div>
+            <div class="faq-answer">
+              No! You can use the extension in guest mode without signing in. However, signing in enables additional features like 
+              persistent chat history, saving your debugging sessions, and searching through past conversations to find similar problems 
+              you've worked on before.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question">What are the known limitations?</div>
+            <div class="faq-answer">
+              The extension requires an active internet connection and valid API keys for the AI models. Response quality depends on 
+              the selected model and your API key's rate limits. Very long code snippets may need to be broken into smaller parts. 
+              The extension works best when you're actively on a LeetCode problem page, as it uses the page context to provide more 
+              relevant assistance.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question">The extension isn't detecting my LeetCode problem. What should I do?</div>
+            <div class="faq-answer">
+              Make sure you're on an active LeetCode problem page (not the homepage or problem list). Try refreshing the page and 
+              reopening the extension side panel. If the problem still isn't detected, you can manually describe the problem in your 
+              chat message, and the AI will still be able to help you.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question">I'm getting API errors. How do I troubleshoot?</div>
+            <div class="faq-answer">
+              First, verify that your API key is correct and has sufficient credits/quota. Check that you've selected a model that 
+              matches your API key (e.g., don't select a Gemini model if you only have an OpenAI key). Try saving your settings again 
+              to re-detect available models. If issues persist, check the browser console (F12) for detailed error messages. Make sure 
+              your API key hasn't expired or been revoked.
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <div class="faq-question">Can I use multiple AI models at the same time?</div>
+            <div class="faq-answer">
+              You can add API keys for multiple providers (OpenAI, Gemini, Claude) simultaneously, but you'll select one model at a time 
+              to use for your conversations. This allows you to switch between models to compare responses or use different models for 
+              different types of problems. Just select your preferred model from the dropdown above.
+            </div>
+          </div>
         </div>
       </div>
       
