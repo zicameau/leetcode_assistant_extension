@@ -1081,7 +1081,20 @@ if (authSignOutBtn) {
 
 // Init
 (async function init() {
-  // [ADDED] Initialize expandable textbox first
+  // Initialize on startup
+  // Establish connection to background script to track open state
+  try {
+    const port = chrome.runtime.connect({ name: 'sidepanel' });
+    // Keep connection alive
+    port.onDisconnect.addListener(() => {
+      console.log('🔌 [Sidepanel] Disconnected from background');
+    });
+    console.log('🔌 [Sidepanel] Connected to background');
+  } catch (e) {
+    console.error('❌ [Sidepanel] Failed to connect to background:', e);
+  }
+
+  // Initialize ExpandableTextbox component
   initializeExpandableTextbox();
   
   // Initialize model dropdown

@@ -1,5 +1,55 @@
-// Track side panel state
-let sidePanelOpen = new Set();
+// Track side panel state using long-lived connections
+// This is more reliable than manual tracking or onClosed events
+let connectedSidePanels = new Set();
+
+// Track when panels were recently closed (to prevent immediate reopen issues)
+// Maps tabId to timestamp when it was closed
+let recentlyClosed = new Map();
+
+// Track tabs that should auto-open when navigating back to them
+let autoOpenTabs = new Set();
+// Track tabs that we are closing programmatically (so we don't remove them from autoOpenTabs)
+let systemClosingTabs = new Set();
+
+// Helper function to log side panel state
+function logSidePanelState(context) {
+  console.log(`🔵 [SIDE PANEL STATE] ${context} - Connected Panels:`, Array.from(connectedSidePanels));
+  console.log(`🔵 [SIDE PANEL STATE] ${context} - Auto Open Tabs:`, Array.from(autoOpenTabs));
+  console.log(`🔵 [SIDE PANEL STATE] ${context} - Set size:`, connectedSidePanels.size);
+  console.log(`🔵 [SIDE PANEL STATE] ${context} - Recently closed:`, Array.from(recentlyClosed.entries()));
+}
+
+// Listen for connections from sidepanel.js
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === 'sidepanel') {
+    const tabId = port.sender?.tab?.id;
+    if (tabId) {
+      console.log(`🔌 [SIDE PANEL] Connected: tab ${tabId}`);
+      connectedSidePanels.add(tabId);
+      // If connected, it implies it's open, so it should be in autoOpenTabs
+      autoOpenTabs.add(tabId);
+      logSidePanelState('ON CONNECT');
+      
+      port.onDisconnect.addListener(() => {
+        console.log(`🔌 [SIDE PANEL] Disconnected: tab ${tabId}`);
+        connectedSidePanels.delete(tabId);
+        
+        if (systemClosingTabs.has(tabId)) {
+          console.log(`🔒 [SIDE PANEL] System closed panel for tab ${tabId}, keeping in autoOpenTabs`);
+          systemClosingTabs.delete(tabId);
+        } else {
+          console.log(`👤 [SIDE PANEL] User closed panel for tab ${tabId}, removing from autoOpenTabs`);
+          autoOpenTabs.delete(tabId);
+          // Track as recently closed only if user closed it
+          recentlyClosed.set(tabId, Date.now());
+          setTimeout(() => recentlyClosed.delete(tabId), 500);
+        }
+        
+        logSidePanelState('ON DISCONNECT');
+      });
+    }
+  }
+});
 
 // Track active LeetCode tabs
 let activeLeetCodeTabs = new Set();
@@ -45,34 +95,14 @@ async function updateActiveLeetCodeTabs() {
       leetCodeTabCount: leetCodeTabIds.size
     });
     
-    // Close side panel if user switches to non-LeetCode tab
-    if (isSidePanelAvailable() && !isOnLeetCodeTab) {
-      // Close side panel for the current active tab
-      if (currentActiveTab?.id) {
-        try {
-          console.log('Closing side panel for non-LeetCode tab:', currentActiveTab.id);
-          await chrome.sidePanel.close({ tabId: currentActiveTab.id });
-          sidePanelOpen.delete(currentActiveTab.id);
-        } catch (error) {
-          // Side panel might not be open, which is fine
-          console.log('Side panel already closed or not open for tab:', currentActiveTab.id);
-          sidePanelOpen.delete(currentActiveTab.id);
-        }
-      }
-      
-      // Also close side panels for any other non-LeetCode tabs that might have it open
-      for (const tabId of Array.from(sidePanelOpen)) {
-        const tab = tabs.find(t => t.id === tabId);
-        if (tab && !isLeetCodeUrl(tab.url)) {
-          try {
-            console.log('Closing side panel for non-LeetCode tab:', tabId);
-            await chrome.sidePanel.close({ tabId });
-            sidePanelOpen.delete(tabId);
-          } catch (error) {
-            console.log('Side panel already closed or not open for tab:', tabId);
-            sidePanelOpen.delete(tabId);
-          }
-        }
+    // If we are on a non-LeetCode tab (navigation within tab), ensure panel is closed
+    if (isSidePanelAvailable() && !isOnLeetCodeTab && currentActiveTab?.id) {
+      // Force close regardless of tracked state to ensure UI is clean
+      try {
+        console.log('🟡 [SIDE PANEL] URL changed to non-LeetCode, closing side panel for active tab:', currentActiveTab.id);
+        await chrome.sidePanel.close({ tabId: currentActiveTab.id });
+      } catch (error) {
+        // Side panel might not be open, which is fine
       }
     }
     
@@ -83,10 +113,13 @@ async function updateActiveLeetCodeTabs() {
       
       // Close side panels for all tabs
       if (isSidePanelAvailable()) {
-        for (const tabId of Array.from(sidePanelOpen)) {
+        for (const tabId of Array.from(connectedSidePanels)) {
           try {
+            console.log('🟡 [SIDE PANEL] Closing side panel for tab (no LeetCode tabs):', tabId);
+            logSidePanelState(`BEFORE close (no LeetCode tabs, tab ${tabId})`);
             await chrome.sidePanel.close({ tabId });
-            sidePanelOpen.delete(tabId);
+            // connectedSidePanels.delete(tabId); // Will happen on disconnect
+            logSidePanelState(`AFTER close (no LeetCode tabs, tab ${tabId})`);
           } catch (error) {
             console.error('Error closing side panel for tab', tabId, ':', error);
           }
@@ -115,10 +148,17 @@ async function updateActiveLeetCodeTabs() {
 // Handle extension icon click to toggle side panel
 chrome.action.onClicked.addListener(async (tab) => {
   const tabId = tab.id;
-  console.log('Extension icon clicked for tab:', tabId);
+  logSidePanelState('BEFORE icon click');
+  console.log('🔵 [SIDE PANEL] ========== Extension icon clicked ==========');
+  console.log('🔵 [SIDE PANEL] Tab ID:', tabId);
+  console.log('🔵 [SIDE PANEL] Tab URL:', tab.url);
+  
+  // Use connection state as source of truth
+  const isConnected = connectedSidePanels.has(tabId);
+  console.log('🔵 [SIDE PANEL] Is tabId in connectedSidePanels?', isConnected);
   
   if (!isSidePanelAvailable()) {
-    console.log('SidePanel API not available, opening in new tab');
+    console.log('⚠️ [SIDE PANEL] SidePanel API not available, opening in new tab');
     // Fallback: open side panel in a new tab
     chrome.tabs.create({
       url: chrome.runtime.getURL('sidepanel.html'),
@@ -127,37 +167,92 @@ chrome.action.onClicked.addListener(async (tab) => {
     return;
   }
   
-  console.log('Current side panel state:', sidePanelOpen.has(tabId) ? 'Open' : 'Closed');
+  console.log('🔵 [SIDE PANEL] Action: Will', isConnected ? 'CLOSE' : 'OPEN', 'the side panel');
   
   try {
-    if (sidePanelOpen.has(tabId)) {
-      // Panel is open, close it
-      console.log('Closing side panel...');
-      await chrome.sidePanel.close({ tabId });
-      sidePanelOpen.delete(tabId);
-      console.log('Side panel closed');
+    if (isConnected) {
+      // It is open (connected), so close it
+      console.log('🔵 [SIDE PANEL] State says panel is OPEN (Connected), attempting to CLOSE...');
+      try {
+        // User is manually closing it, so stop auto-opening
+        autoOpenTabs.delete(tabId);
+        await chrome.sidePanel.close({ tabId });
+        console.log('✅ [SIDE PANEL] Side panel close() call succeeded');
+        // Don't manually remove from Set immediately - wait for disconnect event
+        // But we can track it as "closing" if needed
+      } catch (closeError) {
+        console.warn('⚠️ [SIDE PANEL] Close failed:', closeError);
+        // If close fails, maybe it wasn't open? Force remove from set to resync
+        connectedSidePanels.delete(tabId);
+      }
     } else {
-      // Panel is closed, open it
-      console.log('Opening side panel...');
-      await chrome.sidePanel.open({ tabId });
-      sidePanelOpen.add(tabId);
-      console.log('Side panel opened');
+      // It is closed (not connected), so open it
+      console.log('🔵 [SIDE PANEL] State says panel is CLOSED (Not Connected), attempting to OPEN...');
+      
+      // User is manually opening it, so enable auto-open
+      autoOpenTabs.add(tabId);
+      
+      // Check if this tab was recently closed (via Chrome's UI button or other means)
+      const closedTimestamp = recentlyClosed.get(tabId);
+      if (closedTimestamp) {
+        const timeSinceClose = Date.now() - closedTimestamp;
+        const cooldownMs = 300; // Wait 300ms after close before allowing open
+        if (timeSinceClose < cooldownMs) {
+          const waitTime = cooldownMs - timeSinceClose;
+          console.log(`🔵 [SIDE PANEL] Panel was recently closed (${timeSinceClose}ms ago), waiting ${waitTime}ms before opening...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+        recentlyClosed.delete(tabId);
+      }
+
+      try {
+        await chrome.sidePanel.open({ tabId });
+        console.log('✅ [SIDE PANEL] Side panel open() call succeeded');
+        // Don't manually add to Set - wait for connect event from sidepanel.js
+      } catch (openError) {
+        console.error('❌ [SIDE PANEL] Open failed:', openError);
+        // If open fails because it's "already open" (but we missed the connection?)
+        // Try to close it to reset state?
+        if (openError.message?.includes('already open')) {
+             console.log('🔵 [SIDE PANEL] API says already open, attempting close to reset...');
+             await chrome.sidePanel.close({ tabId });
+        }
+      }
     }
   } catch (error) {
-    console.error('Error toggling side panel:', error);
-    // Fallback: open in new tab if side panel fails
-    chrome.tabs.create({
-      url: chrome.runtime.getURL('sidepanel.html'),
-      active: true
-    });
+    console.error('❌ [SIDE PANEL] Unexpected error toggling side panel:', error);
   }
+  console.log('🔵 [SIDE PANEL] ========== Extension icon click handler complete ==========');
 });
 
 // Listen for side panel events to track state (only if API is available)
-if (isSidePanelAvailable() && chrome.sidePanel.onClosed) {
-  chrome.sidePanel.onClosed.addListener(({ tabId }) => {
-    sidePanelOpen.delete(tabId);
-  });
+if (isSidePanelAvailable()) {
+  // Use onClosed if available (Chrome 116+)
+  if (chrome.sidePanel.onClosed) {
+    chrome.sidePanel.onClosed.addListener(({ tabId }) => {
+      console.log('🔴 [SIDE PANEL] ========== onClosed event fired ==========');
+      console.log('🔴 [SIDE PANEL] Tab ID:', tabId);
+      console.log('🔴 [SIDE PANEL] This event fires when panel is closed by ANY means (extension icon, Chrome UI button, etc.)');
+      logSidePanelState('BEFORE onClosed delete');
+      const wasInSet = connectedSidePanels.has(tabId);
+      console.log('🔴 [SIDE PANEL] Was tabId in set?', wasInSet);
+      // connectedSidePanels.delete(tabId); // Will be handled by disconnect event
+      // Track that this tab was recently closed (for cooldown period)
+      recentlyClosed.set(tabId, Date.now());
+      // Clean up the "recently closed" entry after 500ms
+      setTimeout(() => {
+        recentlyClosed.delete(tabId);
+        console.log('🔴 [SIDE PANEL] Cooldown period expired for tab:', tabId);
+      }, 500);
+      logSidePanelState('AFTER onClosed delete');
+      console.log('🔴 [SIDE PANEL] ========== onClosed event handled ==========');
+    });
+    console.log('✅ [SIDE PANEL] onClosed listener registered');
+  } else {
+    console.warn('⚠️ [SIDE PANEL] chrome.sidePanel.onClosed not available - side panel state tracking may be less reliable');
+  }
+} else {
+  console.warn('⚠️ [SIDE PANEL] SidePanel API not available');
 }
 
 // Listen for tab updates (URL changes, loading state changes)
@@ -169,13 +264,15 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     // If the tab is no longer a LeetCode URL, close the side panel immediately
     if (isSidePanelAvailable() && !isLeetCode) {
       try {
-        console.log('URL changed to non-LeetCode, closing side panel for tab:', tabId);
+        console.log('🟡 [SIDE PANEL] URL changed to non-LeetCode, closing side panel for tab:', tabId);
+        logSidePanelState(`BEFORE close (URL change, tab ${tabId})`);
         await chrome.sidePanel.close({ tabId });
-        sidePanelOpen.delete(tabId);
+        // connectedSidePanels.delete(tabId); // Handled by disconnect
+        logSidePanelState(`AFTER close (URL change, tab ${tabId})`);
       } catch (error) {
         // Side panel might not be open, which is fine
         console.log('Side panel already closed or not open for tab:', tabId);
-        sidePanelOpen.delete(tabId);
+        // connectedSidePanels.delete(tabId);
       }
     }
     
@@ -188,6 +285,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 // Listen for tab removal
 chrome.tabs.onRemoved.addListener(async (tabId) => {
+  // Clean up sets
+  autoOpenTabs.delete(tabId);
+  systemClosingTabs.delete(tabId);
+  recentlyClosed.delete(tabId);
   await updateActiveLeetCodeTabs();
 });
 
@@ -198,11 +299,15 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 
 // Initialize on startup
 chrome.runtime.onStartup.addListener(async () => {
+  console.log('🟢 [SIDE PANEL] Extension startup - initializing...');
+  logSidePanelState('ON STARTUP');
   await updateActiveLeetCodeTabs();
 });
 
 // Initialize when extension is installed/enabled
 chrome.runtime.onInstalled.addListener(async () => {
+  console.log('🟢 [SIDE PANEL] Extension installed/enabled - initializing...');
+  logSidePanelState('ON INSTALLED');
   await updateActiveLeetCodeTabs();
 });
 
@@ -226,7 +331,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         await chrome.storage.local.set({ leetcodeSelectionToTextBox: true });
         
         // Check if side panel is already open for this tab
-        if (isSidePanelAvailable() && sidePanelOpen.has(tabId)) {
+        if (isSidePanelAvailable() && connectedSidePanels.has(tabId)) {
           console.log("🔄 Background: Side panel already open, sending message directly");
           chrome.runtime.sendMessage({ type: 'leetcodeSelectionToTextBox' });
         } else {
@@ -693,3 +798,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   return false;
 });
+
