@@ -727,6 +727,18 @@ function initializeExpandableTextbox() {
   newTextarea.id = "prompt";
   newTextarea.setAttribute("required", "");
   
+  // Handle Enter key to submit
+  newTextarea.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault(); // Prevent newline
+      if (!sendBtn.disabled) {
+        // Dispatch a submit event on the form to trigger the handler
+        const submitEvent = new Event("submit", { cancelable: true, bubbles: true });
+        formEl.dispatchEvent(submitEvent);
+      }
+    }
+  });
+  
   // Get the composerContent to insert the ExpandableTextbox
   const composerContent = document.querySelector('.composerContent');
   

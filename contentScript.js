@@ -88,10 +88,16 @@ function detectAndNotify() {
   console.log("LeetCode problem detected", info);
 
   // Example: send to extension runtime if needed
-  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-    chrome.runtime.sendMessage({ type: "leetcodeProblemDetected", payload: info });
-    // Also persist directly to storage for fast reads from side panel
-    try { chrome.storage?.local?.set({ leetcodeProblem: info }); } catch (_) {}
+  try {
+    if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      chrome.runtime.sendMessage({ type: "leetcodeProblemDetected", payload: info }, () => {
+         if (chrome.runtime.lastError) { /* ignore */ }
+      });
+      // Also persist directly to storage for fast reads from side panel
+      try { chrome.storage?.local?.set({ leetcodeProblem: info }); } catch (_) {}
+    }
+  } catch (e) {
+    console.warn("Extension context invalidated during detection (page reload required to reconnect):", e);
   }
 }
 
@@ -221,6 +227,9 @@ function ensureOverlay() {
       }
     } catch (err) {
       console.error("❌ Error storing selection:", err);
+      if (String(err).includes("Extension context invalidated")) {
+        alert("Extension was updated or reloaded. Please refresh this page to reconnect.");
+      }
     }
   });
 
