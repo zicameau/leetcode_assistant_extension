@@ -169,9 +169,20 @@ function ensureOverlay() {
     e.preventDefault();
   });
 
+  // Remove any existing listener if possible (though usually not needed as script is re-run)
+  const newOverlayBtn = overlayBtn.cloneNode(true);
+  if (overlayBtn.parentNode) {
+    overlayBtn.parentNode.replaceChild(newOverlayBtn, overlayBtn);
+  }
+  overlayBtn = newOverlayBtn;
+
   overlayBtn.addEventListener("click", async () => {
     const selected = getSelectedText();
-    if (!selected) return hideOverlay();
+    if (!selected) {
+      hideOverlay();
+      return;
+    }
+    
     const info = getProblemInfoFromLocation();
     const payload = {
       text: selected.slice(0, 20000),
@@ -180,18 +191,36 @@ function ensureOverlay() {
       ts: Date.now(),
     };
     console.log("📤 Sending selection to text box:", payload);
+    
+    // NEW APPROACH: Always use storage - it's more reliable than runtime messaging
     try {
-      chrome.runtime?.sendMessage?.({ type: "leetcodeSelectionToTextBox", payload }, (response) => {
-        console.log("📥 Response from background:", response);
-        if (chrome.runtime.lastError) {
-          console.error("❌ Runtime error:", chrome.runtime.lastError);
-        }
-        // Hide overlay immediately after sending
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        await chrome.storage.local.set({ 
+          leetcodeLastSelection: payload,
+          leetcodeSelectionToTextBox: true 
+        });
+        console.log("✅ Stored selection in chrome.storage.local");
+        
+        // Optional: Best-effort notify background
+        try {
+          if (chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
+            setTimeout(() => {
+              try {
+                chrome.runtime.sendMessage({ type: "leetcodeSelectionToTextBox", payload }, () => {
+                  if (chrome.runtime.lastError) { /* ignore */ }
+                });
+              } catch (e) { /* ignore */ }
+            }, 0);
+          }
+        } catch (e) { /* ignore */ }
+        
         hideOverlay();
-      });
+      } else {
+        console.error("❌ chrome.storage not available");
+        alert("Extension storage not available. Please reload the page.");
+      }
     } catch (err) {
-      console.error("❌ Error sending message:", err);
-      hideOverlay();
+      console.error("❌ Error storing selection:", err);
     }
   });
 
